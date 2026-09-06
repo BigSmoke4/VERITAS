@@ -1,0 +1,70 @@
+@model Veritas.Web.Modules.PrivilegedAccess.Presentation.PrivilegedAccessViewModel
+@{ ViewData["Title"] = "Privileged Access"; }
+
+<h1>Privileged Access — Just-In-Time Grants</h1>
+
+<form method="post" asp-action="Grant" class="panel" style="margin-bottom: 20px;">
+    @Html.AntiForgeryToken()
+    <div class="form-row">
+        <label for="userId">User</label>
+        <select name="userId" id="userId" required>
+            @foreach (var u in Model.Users) { <option value="@u.Id">@u.Label</option> }
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="resourceId">Resource</label>
+        <select name="resourceId" id="resourceId" required>
+            @foreach (var r in Model.Resources) { <option value="@r.Id">@r.Label</option> }
+        </select>
+    </div>
+    <div class="form-row"><label for="permissionKey">Permission key</label><input type="text" name="permissionKey" id="permissionKey" placeholder="payment.read" required /></div>
+    <div class="form-row"><label for="durationMinutes">Duration (minutes)</label><input type="number" name="durationMinutes" id="durationMinutes" value="30" required /></div>
+    <div class="form-row"><label for="reason">Reason</label><input type="text" name="reason" id="reason" placeholder="Incident INC-20482" required /></div>
+    <button type="submit">Grant temporary access</button>
+</form>
+
+<h2>Active grants (@Model.ActiveGrants.Count)</h2>
+<table class="data-table">
+    <thead><tr><th>User</th><th>Resource</th><th>Permission</th><th>Expires</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var g in Model.ActiveGrants)
+    {
+        <tr>
+            <td>@g.UserId</td>
+            <td>@g.ResourceId</td>
+            <td>@g.PermissionKey</td>
+            <td>@g.ExpiresAtUtc.ToString("u")</td>
+            <td>
+                <form method="post" asp-action="Revoke" style="display:inline;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="grantId" value="@g.Id" />
+                    <input type="hidden" name="reason" value="Manually revoked from console." />
+                    <button type="submit" class="btn-danger">Revoke</button>
+                </form>
+            </td>
+        </tr>
+    }
+    @if (Model.ActiveGrants.Count == 0)
+    {
+        <tr><td colspan="5" class="muted">No active grants. The expiration worker automatically revokes grants past their ExpiresAtUtc — this table only ever shows what's genuinely still active.</td></tr>
+    }
+    </tbody>
+</table>
+
+<h2 style="margin-top: 24px;">Recent history (@Model.RecentGrants.Count)</h2>
+<table class="data-table">
+    <thead><tr><th>User</th><th>Resource</th><th>Permission</th><th>Status</th><th>Expires</th></tr></thead>
+    <tbody>
+    @foreach (var g in Model.RecentGrants)
+    {
+        var status = g.Revoked ? "Revoked" : (g.ExpiresAtUtc <= DateTimeOffset.UtcNow ? "Expired" : "Active");
+        <tr>
+            <td>@g.UserId</td>
+            <td>@g.ResourceId</td>
+            <td>@g.PermissionKey</td>
+            <td><span class="status-lamp @(status == "Active" ? "on" : "off")"></span>@status</td>
+            <td>@g.ExpiresAtUtc.ToString("u")</td>
+        </tr>
+    }
+    </tbody>
+</table>

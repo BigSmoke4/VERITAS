@@ -1,0 +1,11 @@
+body {
+  font-family: var(--veritas-font-sans);
+  color: var(--veritas-text);
+  background: var(--veritas-surface);
+  font-size: 14px;
+  line-height: 1.5;
+}
+h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 16px; }
+h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+code { font-family: var(--veritas-font-mono); }
+.muted { color: var(--veritas-muted); }

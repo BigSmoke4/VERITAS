@@ -1,0 +1,64 @@
+@model Veritas.Web.Modules.Notification.Presentation.WebhookSubscriptionsViewModel
+@{ ViewData["Title"] = "Webhook Subscriptions"; }
+
+<h1>Webhook Subscriptions</h1>
+<p class="muted">
+    Notifications matching an enabled subscription's event type (or a <code>*</code> wildcard)
+    are POSTed as JSON and signed with HMAC-SHA256 in the <code>X-Veritas-Signature</code> header
+    when a signing secret is set. No subscription means no delivery attempt — that's expected,
+    not an error.
+</p>
+
+@if (Model.ErrorMessage is not null)
+{
+    <div class="panel" style="border-color: var(--veritas-danger); margin-bottom: 16px;">@Model.ErrorMessage</div>
+}
+
+<form method="post" asp-action="Create" class="panel" style="margin-bottom: 20px;">
+    @Html.AntiForgeryToken()
+    <div class="form-row">
+        <label for="eventType">Event type</label>
+        <input type="text" name="eventType" id="eventType" placeholder="ACCESS_APPROVED (or * for all events)" />
+    </div>
+    <div class="form-row">
+        <label for="targetUrl">Target URL (https only)</label>
+        <input type="url" name="targetUrl" id="targetUrl" placeholder="https://example.com/hooks/veritas" required />
+    </div>
+    <div class="form-row">
+        <label for="secretForSigning">Signing secret (optional)</label>
+        <input type="text" name="secretForSigning" id="secretForSigning" placeholder="Used to HMAC-sign the payload — never displayed again after saving" />
+    </div>
+    <button type="submit">Create subscription</button>
+</form>
+
+<table class="data-table">
+    <thead><tr><th>Event type</th><th>Target URL</th><th>Signed</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var s in Model.Subscriptions)
+    {
+        <tr>
+            <td>@s.EventType</td>
+            <td>@s.TargetUrl</td>
+            <td>@(string.IsNullOrEmpty(s.SecretForSigning) ? "No" : "Yes")</td>
+            <td><span class="status-lamp @(s.Enabled ? "on" : "off")"></span>@(s.Enabled ? "Enabled" : "Disabled")</td>
+            <td>@s.CreatedAtUtc.ToString("u")</td>
+            <td style="display:flex; gap:6px;">
+                <form method="post" asp-action="ToggleEnabled">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@s.Id" />
+                    <button type="submit">@(s.Enabled ? "Disable" : "Enable")</button>
+                </form>
+                <form method="post" asp-action="Delete">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@s.Id" />
+                    <button type="submit" class="btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+    }
+    @if (Model.Subscriptions.Count == 0)
+    {
+        <tr><td colspan="6" class="muted">No webhook subscriptions configured yet.</td></tr>
+    }
+    </tbody>
+</table>

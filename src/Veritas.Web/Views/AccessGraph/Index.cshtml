@@ -1,0 +1,55 @@
+@model Veritas.Web.Modules.Authorization.Presentation.AccessGraphViewModel
+@{ ViewData["Title"] = "Access Graph"; }
+
+<h1>Access Graph</h1>
+<p class="muted">Built directly from UserRole/RolePermission edges and active temporary grants — no synthetic nodes.</p>
+
+<form method="get" class="panel" style="margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end;">
+    <div class="form-row">
+        <label for="mode">Query</label>
+        <select name="mode" id="mode">
+            <option value="user" selected="@(Model.Mode == "user")">What can this user access?</option>
+            <option value="resource" selected="@(Model.Mode == "resource")">Who can access this resource?</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="id">Subject</label>
+        <select name="id" id="id">
+            @if (Model.Mode == "resource")
+            {
+                foreach (var r in Model.Resources) { <option value="@r.Id" selected="@(Model.SelectedId == r.Id)">@r.Label</option> }
+            }
+            else
+            {
+                foreach (var u in Model.Users) { <option value="@u.Id" selected="@(Model.SelectedId == u.Id)">@u.Label</option> }
+            }
+        </select>
+    </div>
+    <button type="submit">Show graph</button>
+</form>
+
+@if (Model.Graph is { } graph)
+{
+    <div class="panel">
+        <h2>Nodes (@graph.Nodes.Count)</h2>
+        @foreach (var n in graph.Nodes)
+        {
+            <span class="graph-node @n.Type" title="@n.Type">@n.Label</span>
+        }
+        <h2 style="margin-top:16px;">Edges (@graph.Edges.Count)</h2>
+        @foreach (var e in graph.Edges)
+        {
+            var fromLabel = graph.Nodes.FirstOrDefault(n => n.Id == e.FromId)?.Label ?? e.FromId;
+            var toLabel = graph.Nodes.FirstOrDefault(n => n.Id == e.ToId)?.Label ?? e.ToId;
+            <div class="graph-edge">@fromLabel &rarr; @toLabel <em>(@e.Label)</em></div>
+        }
+        @if (graph.Nodes.Count == 1)
+        {
+            <p class="muted">No relationships found — this subject currently has no roles/grants on record.</p>
+        }
+    </div>
+}
+else if (Model.SelectedId is not null)
+{
+    <p class="muted">No graph data found for that selection.</p>
+}

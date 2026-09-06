@@ -1,0 +1,41 @@
+@page
+@model Veritas.Web.Areas.Identity.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+<link rel="stylesheet" href="~/css/identity/login.css" />
+
+<div class="identity-shell">
+    <section class="identity-card" aria-labelledby="login-title">
+        <div class="identity-mark">V</div>
+        <p class="identity-eyebrow">VERITAS CONTROL PLANE</p>
+        <h1 id="login-title">Sign in</h1>
+        <p class="identity-subtitle">Identity, access governance, and zero-trust authorization.</p>
+
+        <form method="post" asp-route-returnUrl="@Model.ReturnUrl" class="identity-form">
+            <div asp-validation-summary="ModelOnly" class="identity-error" role="alert"></div>
+
+            <div class="identity-field">
+                <label asp-for="Input.Email"></label>
+                <input asp-for="Input.Email" autocomplete="username" autofocus />
+                <span asp-validation-for="Input.Email"></span>
+            </div>
+
+            <div class="identity-field">
+                <label asp-for="Input.Password"></label>
+                <input asp-for="Input.Password" autocomplete="current-password" />
+                <span asp-validation-for="Input.Password"></span>
+            </div>
+
+            <label class="identity-check">
+                <input asp-for="Input.RememberMe" />
+                <span>Remember me</span>
+            </label>
+
+            <button type="submit" class="identity-submit">Sign in</button>
+        </form>
+
+        <p class="identity-footer">Protected by ASP.NET Core Identity with lockout, confirmed-email checks, security-stamp validation, and tenant-scoped claims.</p>
+    </section>
+</div>

@@ -1,0 +1,15 @@
+.app-shell { display: flex; min-height: 100vh; }
+.app-sidebar {
+  width: 220px;
+  background: var(--veritas-panel);
+  border-right: 1px solid var(--veritas-border);
+  padding: 16px;
+}
+.app-sidebar .brand { font-weight: 700; letter-spacing: 0.08em; margin-bottom: 24px; }
+.app-sidebar nav { display: flex; flex-direction: column; gap: 8px; }
+.app-sidebar nav a { color: var(--veritas-text); text-decoration: none; padding: 8px; border-radius: var(--veritas-radius); }
+.app-sidebar nav a:hover { background: var(--veritas-surface); }
+.app-main { flex: 1; padding: 24px; }
+.panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.filter-bar { margin-bottom: 12px; display: flex; gap: 8px; }
+.pager { display: flex; gap: 12px; align-items: center; margin-top: 12px; }

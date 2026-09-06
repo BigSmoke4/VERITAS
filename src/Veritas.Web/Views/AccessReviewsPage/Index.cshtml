@@ -1,0 +1,62 @@
+@model Veritas.Web.Modules.AccessReview.Presentation.AccessReviewsViewModel
+@{ ViewData["Title"] = "Access Reviews"; }
+
+<h1>Access Reviews</h1>
+
+<form method="post" asp-action="CreateCampaign" class="panel" style="margin-bottom: 20px;">
+    @Html.AntiForgeryToken()
+    <div class="form-row"><label for="name">Campaign name</label><input type="text" name="name" id="name" placeholder="Quarterly Access Review — Q1" required /></div>
+    <div class="form-row"><label for="reviewerUserId">Reviewer user id</label><input type="text" name="reviewerUserId" id="reviewerUserId" placeholder="GUID" required /></div>
+    <div class="form-row"><label for="dueInDays">Due in (days)</label><input type="number" name="dueInDays" id="dueInDays" value="14" required /></div>
+    <button type="submit">Create campaign from current grants</button>
+</form>
+
+<table class="data-table">
+    <thead><tr><th>Campaign</th><th>Due</th><th>Progress</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var c in Model.Campaigns)
+    {
+        var p = Model.Progress[c.Id];
+        <tr>
+            <td>@c.Name</td>
+            <td>@c.DueAtUtc.ToString("yyyy-MM-dd")</td>
+            <td>@p.Completed / @p.Total (@p.PercentComplete%)</td>
+            <td><a asp-action="Index" asp-route-campaignId="@c.Id">Review</a></td>
+        </tr>
+    }
+    @if (Model.Campaigns.Count == 0)
+    {
+        <tr><td colspan="4" class="muted">No campaigns yet.</td></tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.SelectedCampaign is not null)
+{
+    <h2 style="margin-top: 24px;">@Model.SelectedCampaign.Name — items</h2>
+    <table class="data-table">
+        <thead><tr><th>Subject</th><th>Permission</th><th>Decision</th><th>Action</th></tr></thead>
+        <tbody>
+        @foreach (var item in Model.SelectedItems)
+        {
+            <tr>
+                <td>@item.SubjectUserId</td>
+                <td>@item.PermissionKey</td>
+                <td>@(item.Decision?.ToString() ?? "Pending")</td>
+                <td>
+                    @if (item.Decision is null)
+                    {
+                        <form method="post" asp-action="Decide" style="display:flex; gap:6px;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemId" value="@item.Id" />
+                            <input type="hidden" name="campaignId" value="@Model.SelectedCampaign.Id" />
+                            <button type="submit" name="decision" value="Keep">Keep</button>
+                            <button type="submit" name="decision" value="Remove" class="btn-danger">Remove</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,61 @@
+@model Veritas.Web.Modules.ApplicationRegistry.Presentation.ApiKeysViewModel
+@{ ViewData["Title"] = "Service Accounts & API Keys"; }
+
+<h1>Service Accounts & API Keys</h1>
+
+@if (Model.JustCreatedSecret is { } created)
+{
+    <div class="panel" style="border-color: var(--veritas-ok); margin-bottom: 20px;">
+        <strong>Secret generated — shown once, never stored, never shown again:</strong>
+        <pre style="user-select: all; background: var(--veritas-surface); padding: 8px; border-radius: var(--veritas-radius); margin-top: 8px;">@created.PlaintextSecret</pre>
+        <span class="muted">Prefix @created.KeyPrefix is what will be shown from now on for identification.</span>
+    </div>
+}
+
+<form method="post" asp-action="CreateServiceAccount" class="panel" style="margin-bottom: 20px;">
+    @Html.AntiForgeryToken()
+    <div class="form-row"><label for="applicationId">Application id</label><input type="text" name="applicationId" id="applicationId" placeholder="GUID" required /></div>
+    <div class="form-row"><label for="name">Service account name</label><input type="text" name="name" id="name" placeholder="PaymentService" required /></div>
+    <div class="form-row"><label for="owner">Owner</label><input type="text" name="owner" id="owner" placeholder="Finance Technology" required /></div>
+    <button type="submit">Create service account</button>
+</form>
+
+@foreach (var acct in Model.ServiceAccounts)
+{
+    <div class="panel" style="margin-bottom: 16px;">
+        <h2>@acct.Name <span class="muted">(@acct.Owner)</span></h2>
+
+        <form method="post" asp-action="CreateKey" style="display:flex; gap: 8px; align-items:flex-end; margin-bottom: 12px;">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="serviceAccountId" value="@acct.Id" />
+            <div class="form-row"><label>Scopes (comma-separated)</label><input type="text" name="scopesCsv" placeholder="payment.read,payment.write" /></div>
+            <div class="form-row"><label>TTL (hours, optional)</label><input type="number" name="ttlHours" /></div>
+            <button type="submit">Create key</button>
+        </form>
+
+        <table class="data-table">
+            <thead><tr><th>Prefix</th><th>Scopes</th><th>Status</th><th>Expires</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var key in Model.KeysByServiceAccount.GetValueOrDefault(acct.Id, new()))
+            {
+                <tr>
+                    <td><code>@key.KeyPrefix...</code></td>
+                    <td>@key.ScopesCsv</td>
+                    <td><span class="status-lamp @(key.Revoked ? "off" : "on")"></span>@(key.Revoked ? "Revoked" : "Active")</td>
+                    <td>@(key.ExpiresAtUtc?.ToString("u") ?? "Never")</td>
+                    <td>
+                        @if (!key.Revoked)
+                        {
+                            <form method="post" asp-action="Revoke" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="apiKeyId" value="@key.Id" />
+                                <button type="submit" class="btn-danger">Revoke</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

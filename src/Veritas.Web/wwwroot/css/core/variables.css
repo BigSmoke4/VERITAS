@@ -1,0 +1,14 @@
+:root {
+  --veritas-surface: #f4f5f7;
+  --veritas-panel: #ffffff;
+  --veritas-border: #d7dbe1;
+  --veritas-text: #1c2430;
+  --veritas-muted: #6b7280;
+  --veritas-accent: #2f5d92;
+  --veritas-danger: #a3352f;
+  --veritas-ok: #2f7a4d;
+  --veritas-shadow-inset: inset 0 1px 2px rgba(0,0,0,0.06);
+  --veritas-radius: 6px;
+  --veritas-font-mono: "IBM Plex Mono", "Consolas", monospace;
+  --veritas-font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+}

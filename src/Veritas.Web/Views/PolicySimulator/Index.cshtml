@@ -1,0 +1,64 @@
+@model Veritas.Web.Modules.PolicyManagement.Presentation.PolicySimulatorFormViewModel
+@{ ViewData["Title"] = "Policy Simulator"; }
+
+<h1>Policy Simulator</h1>
+<p class="muted">Runs the real evaluator against every real current user before a policy is published. Nothing here is estimated.</p>
+
+@if (Model.ErrorMessage is not null)
+{
+    <div class="panel" style="border-color: var(--veritas-danger); margin-bottom: 16px;">@Model.ErrorMessage</div>
+}
+
+<form method="post" asp-action="Run" class="panel" style="margin-bottom: 20px;">
+    @Html.AntiForgeryToken()
+    <div class="form-row">
+        <label for="candidatePolicyVersionId">Candidate policy version (Draft or Review)</label>
+        <select name="candidatePolicyVersionId" id="candidatePolicyVersionId" required>
+            @foreach (var v in Model.DraftOrReviewVersions)
+            {
+                <option value="@v.Id">@v.Label</option>
+            }
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="resourceId">Resource</label>
+        <select name="resourceId" id="resourceId" required>
+            @foreach (var r in Model.Resources)
+            {
+                <option value="@r.Id">@r.Name</option>
+            }
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="action">Action</label>
+        <input type="text" name="action" id="action" value="read" required />
+    </div>
+    <button type="submit">Simulate</button>
+</form>
+
+@if (Model.Result is { } result)
+{
+    <section class="panel-grid">
+        <div class="panel"><span class="panel-label">Allowed (current)</span><span class="panel-value">@result.AllowedBefore</span></div>
+        <div class="panel"><span class="panel-label">Allowed (after)</span><span class="panel-value">@result.AllowedAfter</span></div>
+        <div class="panel"><span class="panel-label">Users losing access</span><span class="panel-value">@result.UsersLosingAccess</span></div>
+        <div class="panel"><span class="panel-label">Users gaining access</span><span class="panel-value">@result.UsersGainingAccess</span></div>
+        <div class="panel"><span class="panel-label">Users affected</span><span class="panel-value">@result.UsersAffected</span></div>
+    </section>
+
+    <h2>Per-user detail</h2>
+    <table class="data-table">
+        <thead><tr><th>User</th><th>Before</th><th>After</th></tr></thead>
+        <tbody>
+        @foreach (var d in result.Details)
+        {
+            var changed = d.Before != d.After;
+            <tr style="@(changed ? "background: #fff6e5;" : "")">
+                <td>@d.DisplayName</td>
+                <td>@d.Before</td>
+                <td>@d.After</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

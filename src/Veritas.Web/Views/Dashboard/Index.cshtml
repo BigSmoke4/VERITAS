@@ -1,0 +1,43 @@
+@model Veritas.Web.Controllers.DashboardViewModel
+@{
+    ViewData["Title"] = "Control Center";
+    var totalDecisions = Model.AllowedDecisions30d + Model.DeniedDecisions30d;
+    var allowRate = totalDecisions == 0 ? 0 : (double)Model.AllowedDecisions30d / totalDecisions * 100;
+}
+
+<h1>VERITAS Security Control Center</h1>
+
+<section class="panel-grid">
+    <div class="panel">
+        <span class="panel-label">Users</span>
+        <span class="panel-value">@Model.Users</span>
+    </div>
+    <div class="panel">
+        <span class="panel-label">Applications</span>
+        <span class="panel-value">@Model.Applications</span>
+    </div>
+    <div class="panel">
+        <span class="panel-label">Resources</span>
+        <span class="panel-value">@Model.Resources</span>
+    </div>
+    <div class="panel">
+        <span class="panel-label">Published Policies</span>
+        <span class="panel-value">@Model.PublishedPolicies</span>
+    </div>
+    <div class="panel">
+        <span class="panel-label">Pending Access Requests</span>
+        <span class="panel-value">@Model.PendingAccessRequests</span>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Authorization Health (30 days)</h2>
+    @if (totalDecisions == 0)
+    {
+        <p class="muted">No authorization decisions recorded yet. Call <code>POST /api/v1/authorize</code> to generate data — this dashboard never shows fabricated numbers.</p>
+    }
+    else
+    {
+        <p>Allowed: @Model.AllowedDecisions30d (@allowRate.ToString("0.0")%) · Denied: @Model.DeniedDecisions30d</p>
+    }
+</section>

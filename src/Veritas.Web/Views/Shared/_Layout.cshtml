@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] — VERITAS</title>
+    <link rel="stylesheet" href="~/css/core/variables.css" />
+    <link rel="stylesheet" href="~/css/core/reset.css" />
+    <link rel="stylesheet" href="~/css/core/typography.css" />
+    <link rel="stylesheet" href="~/css/core/layout.css" />
+    <link rel="stylesheet" href="~/css/components/panel.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="app-sidebar">
+            <div class="brand">VERITAS</div>
+            <nav>
+                <a asp-controller="Dashboard" asp-action="Index">Control Center</a>
+                <a asp-controller="Audit" asp-action="Index">Audit Explorer</a>
+                <a asp-controller="PolicySimulatorPage" asp-action="Index">Policy Simulator</a>
+                <a asp-controller="AccessGraphPage" asp-action="Index">Access Graph</a>
+                <a asp-controller="AccessReviewsPage" asp-action="Index">Access Reviews</a>
+                <a asp-controller="PrivilegedAccessPage" asp-action="Index">Privileged Access</a>
+                <a asp-controller="ApiKeysPage" asp-action="Index">API Keys</a>
+                <a asp-controller="WebhookSubscriptionsPage" asp-action="Index">Webhooks</a>
+            </nav>
+        </aside>
+        <main class="app-main">
+            @RenderBody()
+        </main>
+    </div>
+</body>
+</html>

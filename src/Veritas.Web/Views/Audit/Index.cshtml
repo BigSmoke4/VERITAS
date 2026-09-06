@@ -1,0 +1,52 @@
+@model Veritas.Web.Modules.Audit.Presentation.Controllers.AuditListViewModel
+@{
+    ViewData["Title"] = "Audit Explorer";
+    var totalPages = (int)Math.Ceiling(Model.TotalCount / (double)Model.PageSize);
+}
+
+<h1>Audit Explorer</h1>
+
+<form method="get" class="filter-bar">
+    <input type="text" name="action" value="@Model.ActionFilter" placeholder="Filter by action (e.g. AUTHORIZATION_DENIED)" />
+    <button type="submit">Filter</button>
+</form>
+
+<table class="data-table" aria-label="Audit log entries">
+    <thead>
+        <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Action</th>
+            <th scope="col">Resource</th>
+            <th scope="col">Decision Id</th>
+            <th scope="col">Correlation Id</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.Items)
+        {
+            <tr>
+                <td>@item.TimestampUtc.ToString("u")</td>
+                <td>@item.Action</td>
+                <td>@item.ResourceId</td>
+                <td>@item.DecisionId</td>
+                <td>@item.CorrelationId</td>
+            </tr>
+        }
+        @if (Model.Items.Count == 0)
+        {
+            <tr><td colspan="5" class="muted">No audit events match this filter.</td></tr>
+        }
+    </tbody>
+</table>
+
+<nav class="pager" aria-label="Audit pagination">
+    @if (Model.Page > 1)
+    {
+        <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-action="@Model.ActionFilter">Previous</a>
+    }
+    <span>Page @Model.Page of @Math.Max(totalPages, 1)</span>
+    @if (Model.Page < totalPages)
+    {
+        <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-action="@Model.ActionFilter">Next</a>
+    }
+</nav>

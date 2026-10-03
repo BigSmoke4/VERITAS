@@ -74,14 +74,14 @@ jobs:
         if: steps.integration.outcome == 'failure'
         run: |
           LOG="${{ runner.temp }}/integration.log"
-          tr -d '\r' < "$LOG" \
-            | grep -nE 'Failed |Error Message|Assert|Exception|Expected:|Actual:|Docker' \
-            | head -n 30 \
-            | while IFS= read -r line; do
-                msg=${line:0:400}
-                msg=${msg//'%'/'%25'}
-                echo "::error::${msg}"
-              done
+          # The previous grep only ever matched Testcontainers startup chatter, which
+          # means the failure is not in the form it looked for. Emit the tail verbatim so
+          # whatever actually ended the run is visible.
+          tr -d '\r' < "$LOG" | tail -n 30 | while IFS= read -r line; do
+            msg=${line:0:400}
+            msg=${msg//'%'/'%25'}
+            echo "::error::${msg}"
+          done
           {
             echo '## Integration test failures'
             echo

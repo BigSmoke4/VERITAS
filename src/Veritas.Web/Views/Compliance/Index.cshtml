@@ -2,10 +2,10 @@
 @{
     ViewData["Title"] = "Compliance";
     var status = Model.Status;
-    var page = Model.Page;
+    var currentPage = Model.Page;
     var pager = new Veritas.Web.Shared.Presentation.PagerModel
     {
-        Total = Model.TotalFindings, Page = page, PageSize = 25,
+        Total = Model.TotalFindings, Page = currentPage, PageSize = 25,
         UrlFor = p => Url.Action("Index", new { status, page = p })
     };
 }
@@ -61,7 +61,7 @@
                                 <form method="post" asp-action="Acknowledge">
                                     <input type="hidden" name="findingId" value="@finding.Id" />
                                     <input type="hidden" name="status" value="@status" />
-                                    <input type="hidden" name="page" value="@page" />
+                                    <input type="hidden" name="page" value="@currentPage" />
                                     <button class="btn btn--sm btn--ghost" type="submit">Acknowledge</button>
                                 </form>
                             }

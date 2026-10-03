@@ -47,9 +47,9 @@
                         <div class="condition-row">
                             <input type="hidden" name="ruleIndex" value="@r" />
                             <select class="select" name="conditionAttribute">
-                                @foreach (var attribute in PoliciesPageController.AttributeCatalog)
+                                @foreach (var attr in PoliciesPageController.AttributeCatalog)
                                 {
-                                    <option value="@attribute" selected="@(condition.Attribute == attribute)">@attribute</option>
+                                    <option value="@attr" selected="@(condition.Attribute == attr)">@attr</option>
                                 }
                             </select>
                             <select class="select" name="conditionOperator">

@@ -50,9 +50,12 @@
                         <p class="timeline__meta">
                             @if (Model.GrantedAtUtc is { } granted)
                             {
-                                @: @granted.ToString("yyyy-MM-dd HH:mm") UTC — expires @Model.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC
+                                <text>@granted.ToString("yyyy-MM-dd HH:mm") UTC &mdash; expires @Model.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC</text>
                             }
-                            else { @: Not yet granted }
+                            else
+                            {
+                                <text>Not yet granted</text>
+                            }
                         </p>
                     </li>
                 </ol>

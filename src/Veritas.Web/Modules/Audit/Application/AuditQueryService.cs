@@ -172,7 +172,8 @@ public sealed class AuditQueryService : IAuditQueryService
     {
         try
         {
-            return System.Text.Json.JsonSerializer.Deserialize<List<DecisionCheckView>>(json) ?? Array.Empty<DecisionCheckView>();
+            return System.Text.Json.JsonSerializer.Deserialize<List<DecisionCheckView>>(json)
+                   is { } checks ? checks : Array.Empty<DecisionCheckView>();
         }
         catch (System.Text.Json.JsonException)
         {

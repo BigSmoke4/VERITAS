@@ -60,8 +60,12 @@ public sealed class ResourceService : IResourceService
             .GroupBy(s => s.ApplicationId).Select(g => new { Id = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Id, x => x.Count, ct);
 
-        var keyCounts = await _db.ApiKeys.AsNoTracking()
-            .GroupBy(k => k.ServiceAccount.ApplicationId).Select(g => new { Id = g.Key, Count = g.Count() })
+        // ApiKey carries ServiceAccountId, not a ServiceAccount navigation, so the
+        // owning application is reached by joining rather than by traversal.
+        var keyCounts = await (from k in _db.ApiKeys.AsNoTracking()
+                               join sa in _db.ServiceAccounts.AsNoTracking() on k.ServiceAccountId equals sa.Id
+                               group k by sa.ApplicationId into g
+                               select new { Id = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Id, x => x.Count, ct);
 
         var highRiskPrefixes = await _db.Resources.AsNoTracking()

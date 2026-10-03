@@ -102,7 +102,8 @@ public sealed class RiskDashboardService : IRiskDashboardService
         {
             var bucket = trendStart.AddDays(i);
             var day = evaluations.Where(e => e.EvaluatedAtUtc.UtcDateTime.Date == bucket).ToList();
-            return (bucket, day.Count == 0 ? 0d : Math.Round(day.Average(e => e.TotalScore), 1));
+            return (BucketUtc: new DateTimeOffset(bucket, TimeSpan.Zero),
+                    AverageScore: day.Count == 0 ? 0d : Math.Round(day.Average(e => e.TotalScore), 1));
         }).ToList();
 
         return new RiskDashboard(

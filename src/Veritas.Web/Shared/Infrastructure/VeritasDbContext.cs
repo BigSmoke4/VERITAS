@@ -126,7 +126,7 @@ public class VeritasDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
         builder.Entity<ResourceGroup>().HasIndex(g => new { g.OrganizationId, g.Name }).IsUnique();
         builder.Entity<Policy>().HasIndex(p => new { p.OrganizationId, p.Name }).IsUnique();
         builder.Entity<PolicyVersion>().HasIndex(pv => new { pv.PolicyId, pv.VersionNumber }).IsUnique();
-        builder.Entity<ApprovalStep>().HasIndex(s => new { s.AccessRequestId, s.Order }).IsUnique();
+        builder.Entity<AccessRequestEntities.ApprovalStep>().HasIndex(s => new { s.AccessRequestId, s.Order }).IsUnique();
         builder.Entity<SoDConflictRule>().HasIndex(r => new { r.OrganizationId, r.PermissionKeyA, r.PermissionKeyB }).IsUnique();
         builder.Entity<ServiceAccount>().HasIndex(s => new { s.OrganizationId, s.Name }).IsUnique();
         builder.Entity<ApiKey>().HasIndex(k => k.KeyHash).IsUnique();

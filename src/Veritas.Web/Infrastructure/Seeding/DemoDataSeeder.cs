@@ -382,7 +382,7 @@ public sealed class DemoDataSeeder
         for (var i = 0; i < 240; i++)
         {
             var user = demoUsers[random.Next(demoUsers.Count)];
-            var resource = demoResources[random.Next(demoResources.Count)];
+            var resource = demoResources[random.Next(demoResources.Length)];
             var isAllow = random.Next(100) < 88;
             var evaluatedAt = now.AddDays(-random.Next(0, 30)).AddMinutes(-random.Next(0, 1440));
             var decisionId = Guid.NewGuid();

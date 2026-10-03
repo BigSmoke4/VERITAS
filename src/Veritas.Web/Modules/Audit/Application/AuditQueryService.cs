@@ -116,7 +116,7 @@ public sealed class AuditQueryService : IAuditQueryService
             decision.RiskScore, decision.RiskLevel, policyName, policyVersionNumber,
             decision.RequiredPermissionKey, decision.EvaluatedAtUtc, decision.ExpiresAtUtc,
             decision.CorrelationId,
-            Deserialize(decision.ReasonsJson, System.Text.Json.JsonSerializer.Deserialize<List<string>>),
+            Deserialize(decision.ReasonsJson, json => System.Text.Json.JsonSerializer.Deserialize<List<string>>(json)),
             DeserializeChecks(decision.ChecksJson));
     }
 
@@ -164,7 +164,7 @@ public sealed class AuditQueryService : IAuditQueryService
 
     private static IReadOnlyList<string> Deserialize(string json, Func<string, List<string>?> deserialize)
     {
-        try { return deserialize(json) ?? Array.Empty<string>(); }
+        try { return deserialize(json) is { } list ? list : Array.Empty<string>(); }
         catch (System.Text.Json.JsonException) { return Array.Empty<string>(); }
     }
 

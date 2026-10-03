@@ -43,7 +43,7 @@ public sealed class AuthorizationPageController : Controller
         var rows = await query.OrderByDescending(d => d.EvaluatedAtUtc)
             .Skip((page - 1) * PageSize).Take(PageSize).ToListAsync(ct);
 
-        var subjectIds = rows.Select(r => r.SubjectUserId).Where(Guid.TryParse).Select(Guid.Parse).Distinct().ToList();
+        var subjectIds = rows.Select(r => r.SubjectUserId).Where(s => Guid.TryParse(s, out _)).Select(Guid.Parse).Distinct().ToList();
         var subjectNames = subjectIds.Count == 0
             ? new Dictionary<Guid, string>()
             : await _db.Users.AsNoTracking().Where(u => subjectIds.Contains(u.Id))

@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Veritas.Web.Modules.Audit.Domain;
+// `AccessRequest` is both a module namespace and an entity name; alias the
+// status enum so neither shadows the other.
+using AccessRequestStatus = Veritas.Web.Modules.AccessRequest.Domain.AccessRequestStatus;
 using Veritas.Web.Shared.Application.Configuration;
 using Veritas.Web.Shared.Infrastructure;
 
@@ -53,7 +56,7 @@ public sealed class AuditProcessingWorker : BackgroundService
 
         var expiredRequests = await db.AccessRequests
             .IgnoreQueryFilters()
-            .Where(r => r.Status == AccessRequest.Domain.AccessRequestStatus.Granted
+            .Where(r => r.Status == AccessRequestStatus.Granted
                         && r.ExpiresAtUtc != null && r.ExpiresAtUtc <= now)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -62,7 +65,7 @@ public sealed class AuditProcessingWorker : BackgroundService
 
         foreach (var request in expiredRequests)
         {
-            request.Status = AccessRequest.Domain.AccessRequestStatus.Expired;
+            request.Status = AccessRequestStatus.Expired;
 
             db.AuditLogs.Add(new AuditLog
             {

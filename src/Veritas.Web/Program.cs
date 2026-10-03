@@ -17,6 +17,7 @@ using Veritas.Web.Controllers;
 using Veritas.Web.Infrastructure;
 using Veritas.Web.Infrastructure.Caching;
 using Veritas.Web.Infrastructure.Idempotency;
+using Veritas.Web.Modules.AccessRequest.Application;
 using Veritas.Web.Modules.AccessReview.Application;
 using Veritas.Web.Modules.Administration.Application;
 using Veritas.Web.Modules.Analytics.Application;

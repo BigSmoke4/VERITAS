@@ -56,9 +56,14 @@ public class EndToEndTemporaryAccessTests : IClassFixture<VeritasWebAppFactory>
         Assert.True(grant.IsActive(DateTimeOffset.UtcNow));
         Assert.True(await privileged.HasActiveGrantAsync(userId, resource.Id, "payment.read"));
 
-        // Simulate 30 minutes passing by directly moving ExpiresAtUtc into the
-        // past, then run the same expiration query the worker runs.
+        // Simulate 30 minutes passing, then run the same expiration query the worker runs.
+        //
+        // Both ends of the window move. Moving only ExpiresAtUtc into the past would put it
+        // before StartAtUtc, which CK_TemporaryGrant_Window rejects — a grant that expires
+        // before it starts is not an expired grant, it is nonsense, and the database is
+        // right to refuse it. What this test needs is a window that is wholly in the past.
         var trackedGrant = await db.TemporaryGrants.FirstAsync(g => g.Id == grant.Id);
+        trackedGrant.StartAtUtc = DateTimeOffset.UtcNow.AddMinutes(-31);
         trackedGrant.ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
         await db.SaveChangesAsync();
 

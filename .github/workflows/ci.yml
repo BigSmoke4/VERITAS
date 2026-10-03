@@ -81,9 +81,12 @@ jobs:
           # A case-insensitive 'fail|error' sweep only ever matched EF's schema DDL
           # ("AccessFailedCount" integer NOT NULL). Anchor to the xUnit console format
           # instead, and drop telemetry and SQL lines explicitly.
+          # Names alone are not enough — pull the 20 lines following each `Failed ` so
+          # the assertion text and the top of the stack come with it.
           MATCHES=$(tr -d '\r' < "$LOG" \
-            | grep -nE '^(Failed!|Passed!|Skipped!|  Failed |  Error Message|   Assert|  Expected|  Actual|  Stack Trace|Total tests:|Failed  |Passed  )' \
-            | grep -viE 'telemetry|opentelemetry|NOT NULL' | head -n 60)
+            | grep -A 20 -E '^  Failed ' \
+            | grep -viE 'telemetry|opentelemetry|NOT NULL|^ +at (Microsoft|System|Xunit|Veritas.Web.Shared.Infrastructure)' \
+            | head -n 70)
           COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
           echo "::error::integration log: ${COUNT} failure-looking lines matched"
           printf '%s\n' "$MATCHES" | while IFS= read -r line; do

@@ -74,10 +74,17 @@ jobs:
         if: steps.integration.outcome == 'failure'
         run: |
           LOG="${{ runner.temp }}/integration.log"
-          # The previous grep only ever matched Testcontainers startup chatter, which
-          # means the failure is not in the form it looked for. Emit the tail verbatim so
-          # whatever actually ended the run is visible.
-          tr -d '\r' < "$LOG" | tail -n 30 | while IFS= read -r line; do
+          # The tail is OpenTelemetry console-exporter output, which buries the xUnit
+          # summary. Grep broadly and case-insensitively for anything that reads like a
+          # failure or a result line, and say how many lines matched so a zero result is
+          # itself informative.
+          MATCHES=$(tr -d '\r' < "$LOG" \
+            | grep -inE 'fail|error|assert|exception|total tests|passed!|skipped' \
+            | grep -viE 'telemetry|opentelemetry|OTEL' | head -n 60)
+          COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
+          echo "::error::integration log: ${COUNT} failure-looking lines matched"
+          printf '%s\n' "$MATCHES" | while IFS= read -r line; do
+            [ -z "$line" ] && continue
             msg=${line:0:400}
             msg=${msg//'%'/'%25'}
             echo "::error::${msg}"

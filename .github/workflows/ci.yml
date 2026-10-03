@@ -66,17 +66,26 @@ jobs:
       # Job logs live on blob storage that is not always reachable from a sandbox or a
       # phone. Mirroring the failure text into the job summary means the diagnosis is
       # readable through the check-run API, not only in the web UI.
-      - name: Publish integration failures to the job summary
+      # $GITHUB_STEP_SUMMARY turned out not to be readable through the check-run API
+      # (output.summary stays empty), and the raw job log lives on blob storage that is
+      # not always reachable. Workflow annotations ARE readable through
+      # /check-runs/{id}/annotations, so the failing lines go out that way.
+      - name: Publish integration failures as annotations
         if: steps.integration.outcome == 'failure'
         run: |
           LOG="${{ runner.temp }}/integration.log"
+          tr -d '\r' < "$LOG" \
+            | grep -nE 'Failed |Error Message|Assert|Exception|Expected:|Actual:|Docker' \
+            | head -n 30 \
+            | while IFS= read -r line; do
+                msg=${line:0:400}
+                msg=${msg//'%'/'%25'}
+                echo "::error::${msg}"
+              done
           {
             echo '## Integration test failures'
             echo
             echo '```'
-            grep -nE 'Failed|Error Message|Assert|Exception|Stack Trace|^ +at ' "$LOG" \
-              | head -n 200 || true
-            echo '--- tail ---'
             tail -n 120 "$LOG" | cut -c 1-400
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

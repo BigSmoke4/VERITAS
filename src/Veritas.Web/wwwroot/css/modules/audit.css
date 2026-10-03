@@ -1,0 +1,23 @@
+/* Audit explorer. */
+
+.audit-action {
+  font-family: var(--font-technical);
+  font-size: var(--fs-400);
+  white-space: nowrap;
+}
+
+.audit-timestamp { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--fs-400); color: var(--text-secondary); }
+
+.audit-json {
+  max-height: 22rem;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--surface-inset);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-recess);
+  font-family: var(--font-technical);
+  font-size: var(--fs-400);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

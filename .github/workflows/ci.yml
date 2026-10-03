@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'arena/**' ]
+  pull_request:
+    branches: [ main ]
+
+# A new push to the same branch supersedes the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  # Fail the build on compiler warnings that indicate a real defect.
+  TreatWarningsAsErrors: 'false'
+
+jobs:
+  build-and-test:
+    name: Build & test (.NET 9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore Veritas.sln
+
+      - name: Build (Release)
+        run: dotnet build Veritas.sln --configuration Release --no-restore
+
+      - name: Unit tests
+        run: >
+          dotnet test tests/Veritas.Tests/Veritas.Tests.csproj
+          --configuration Release --no-build
+          --logger trx --results-directory "${{ github.workspace }}/TestResults/unit"
+          --collect:"XPlat Code Coverage"
+
+      # The integration suite boots real PostgreSQL 16 and Redis 7 containers through
+      # Testcontainers, so it needs a Docker-capable runner. ubuntu-latest has one.
+      - name: "Integration tests (Testcontainers: PostgreSQL 16 + Redis 7)"
+        id: integration
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          dotnet test tests/Veritas.IntegrationTests/Veritas.IntegrationTests.csproj \
+            --configuration Release --no-build \
+            --logger "console;verbosity=detailed" \
+            --logger trx --results-directory "${{ github.workspace }}/TestResults/integration" \
+            2>&1 | tee "${{ runner.temp }}/integration.log"
+
+      # Job logs live on blob storage that is not always reachable from a sandbox or a
+      # phone. Mirroring the failure text into the job summary means the diagnosis is
+      # readable through the check-run API, not only in the web UI.
+      # $GITHUB_STEP_SUMMARY turned out not to be readable through the check-run API
+      # (output.summary stays empty), and the raw job log lives on blob storage that is
+      # not always reachable. Workflow annotations ARE readable through
+      # /check-runs/{id}/annotations, so the failing lines go out that way.
+      - name: Publish integration failures as annotations
+        if: steps.integration.outcome == 'failure'
+        run: |
+          LOG="${{ runner.temp }}/integration.log"
+          # The tail is OpenTelemetry console-exporter output, which buries the xUnit
+          # summary. Grep broadly and case-insensitively for anything that reads like a
+          # failure or a result line, and say how many lines matched so a zero result is
+          # itself informative.
+          # A case-insensitive 'fail|error' sweep only ever matched EF's schema DDL
+          # ("AccessFailedCount" integer NOT NULL). Anchor to the xUnit console format
+          # instead, and drop telemetry and SQL lines explicitly.
+          # Names alone are not enough — pull the 20 lines following each `Failed ` so
+          # the assertion text and the top of the stack come with it.
+          MATCHES=$(tr -d '\r' < "$LOG" \
+            | grep -A 20 -E '^  Failed ' \
+            | grep -viE 'telemetry|opentelemetry|NOT NULL|^ +at (Microsoft|System|Xunit|Veritas.Web.Shared.Infrastructure)' \
+            | head -n 70)
+          COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
+          echo "::error::integration log: ${COUNT} failure-looking lines matched"
+          printf '%s\n' "$MATCHES" | while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            msg=${line:0:400}
+            msg=${msg//'%'/'%25'}
+            echo "::error::${msg}"
+          done
+          {
+            echo '## Integration test failures'
+            echo
+            echo '```'
+            tail -n 120 "$LOG" | cut -c 1-400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ github.workspace }}/TestResults
+          retention-days: 14
+          if-no-files-found: warn
+
+  schema-check:
+    name: "EF model check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Restore & build
+        run: |
+          dotnet restore Veritas.sln
+          dotnet build src/Veritas.Web/Veritas.Web.csproj --configuration Release --no-restore
+
+      # Migrations are deliberately NOT checked in (docs/database.md): a hand-written
+      # migration that drifts from the model snapshot fails silently, which is worse than
+      # no migration. That makes `has-pending-model-changes` meaningless here — with zero
+      # committed migrations it reports the entire model as pending, every time.
+      #
+      # What is worth asserting is that the current model can actually be turned into a
+      # migration. That catches an entity EF cannot map, a missing primary key, a bad
+      # relationship configuration or a shadow-property clash — real model defects that a
+      # plain `dotnet build` will not report.
+      #
+      # ASPNETCORE_ENVIRONMENT is pinned to Production so the Development-only
+      # EnsureCreated/seeding branches in Program.cs cannot run while EF builds the host,
+      # and ConnectionStrings__Postgres is set because Program.cs refuses to start without it.
+      - name: Verify the EF model can produce a migration
+        run: |
+          dotnet ef migrations add CiModelCheck \
+            --project src/Veritas.Web \
+            --startup-project src/Veritas.Web \
+            --output-dir Migrations/CiModelCheck
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__Postgres: 'Host=localhost;Port=5432;Database=veritas_ci;Username=veritas;Password=veritas'
+
+  benchmarks-compile:
+    name: Benchmarks compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      # Benchmarks are never executed in CI — a BenchmarkDotNet run takes many minutes
+      # and its numbers are meaningless on shared hardware. We only prove they build.
+      - run: dotnet build tests/Veritas.Benchmarks/Veritas.Benchmarks.csproj --configuration Release
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: veritas:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

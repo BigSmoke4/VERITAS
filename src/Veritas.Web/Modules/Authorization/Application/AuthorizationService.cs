@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Veritas.Web.Infrastructure.Caching;
 using Veritas.Web.Modules.Audit.Application;
 using Veritas.Web.Modules.Audit.Domain;
 using Veritas.Web.Modules.PolicyManagement.Domain;
 using Veritas.Web.Modules.RiskManagement.Application;
-using Veritas.Web.Infrastructure.Caching;
+using Veritas.Web.Modules.RoleManagement.Application;
 using Veritas.Web.Observability;
+using Veritas.Web.Shared.Application.AccessGrants;
+using Veritas.Web.Shared.Application.Configuration;
 using Veritas.Web.Shared.Domain;
 using Veritas.Web.Shared.Infrastructure;
 
@@ -16,13 +20,14 @@ public interface IAuthorizationService
 }
 
 /// <summary>
-/// Orchestrates a single authorize call: build real attributes -> evaluate
-/// policy -> persist the decision (for reproducibility) -> write an audit
-/// event. This is the class the /api/v1/authorize controller delegates to;
-/// it contains no business logic of its own beyond wiring, per section 3
-/// (thin controllers, but also thin/no-logic orchestration layers — the
-/// actual decision logic lives in PolicyEvaluationEngine, which is pure and
-/// independently unit tested).
+/// Orchestrates one authorize call through the full Zero Trust pipeline
+/// (spec section 16): Identity -> Context -> Policy -> Risk -> Decision.
+///
+/// Nothing here is decorative. Each stage appends a <see cref="DecisionCheck"/>
+/// so the returned explanation is a transcript of what was actually executed,
+/// and the persisted AuthorizationDecisionRecord names the exact
+/// PolicyVersionId used, which is what makes a six-month-old decision
+/// reproducible (ADR-006).
 /// </summary>
 public sealed class AuthorizationService : IAuthorizationService
 {
@@ -31,8 +36,11 @@ public sealed class AuthorizationService : IAuthorizationService
     private readonly ITenantContext _tenant;
     private readonly IAuditService _audit;
     private readonly IRiskEvaluationService _risk;
+    private readonly IRbacEvaluator _rbac;
+    private readonly ITemporaryGrantReader _grants;
     private readonly IPolicyCache _policyCache;
     private readonly VeritasMetrics _metrics;
+    private readonly SecurityOptions _security;
 
     public AuthorizationService(
         VeritasDbContext db,
@@ -40,27 +48,36 @@ public sealed class AuthorizationService : IAuthorizationService
         ITenantContext tenant,
         IAuditService audit,
         IRiskEvaluationService risk,
+        IRbacEvaluator rbac,
+        ITemporaryGrantReader grants,
         IPolicyCache policyCache,
-        VeritasMetrics metrics)
+        VeritasMetrics metrics,
+        IOptions<SecurityOptions> security)
     {
         _db = db;
         _engine = engine;
         _tenant = tenant;
         _audit = audit;
         _risk = risk;
+        _rbac = rbac;
+        _grants = grants;
         _policyCache = policyCache;
         _metrics = metrics;
+        _security = security.Value;
     }
 
     public async Task<AuthorizationDecisionOutcome> AuthorizeAsync(AuthorizationRequest request, CancellationToken ct = default)
     {
         using var activity = VeritasMetrics.ActivitySource.StartActivity("authorize");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var outcome = await AuthorizeInternalAsync(request, ct);
-        stopwatch.Stop();
 
+        var outcome = await AuthorizeInternalAsync(request, ct);
+
+        stopwatch.Stop();
         activity?.SetTag("veritas.decision", outcome.Result.ToString());
         activity?.SetTag("veritas.decision_id", outcome.DecisionId);
+        activity?.SetTag("veritas.risk_score", outcome.RiskScore);
+
         _metrics.RecordAuthorizationRequest(
             denied: outcome.Result == AuthorizationDecisionResult.Deny,
             latencyMs: stopwatch.Elapsed.TotalMilliseconds);
@@ -72,48 +89,176 @@ public sealed class AuthorizationService : IAuthorizationService
 
     private async Task<AuthorizationDecisionOutcome> AuthorizeInternalAsync(AuthorizationRequest request, CancellationToken ct)
     {
-        if (!Guid.TryParse(request.SubjectUserId, out var userId) ||
-            !Guid.TryParse(request.ResourceId, out var resourceId))
+        var checks = new List<DecisionCheck>();
+        var reasons = new List<string>();
+
+        // --- 1. Identity -------------------------------------------------------
+        var identityOk = Guid.TryParse(request.SubjectUserId, out var userId);
+        checks.Add(new DecisionCheck("IDENTITY_VERIFIED", "Subject identifier is well-formed", identityOk,
+            identityOk ? request.SubjectUserId : $"'{request.SubjectUserId}' is not a valid identifier"));
+        if (!identityOk)
+            return await FinalizeAsync(Denial(reasons, checks, "Subject identifier is not valid."), request, null, ct);
+
+        var tenantOk = _tenant.IsResolved;
+        checks.Add(new DecisionCheck("TENANT_VERIFIED", "Request is bound to a resolved tenant", tenantOk,
+            tenantOk ? _tenant.OrganizationId.ToString() : "No org_id claim on the calling principal"));
+        if (!tenantOk)
+            return await FinalizeAsync(Denial(reasons, checks, "Tenant could not be resolved for this principal."), request, null, ct);
+
+        // --- 2. Context (subject + resource, loaded from real rows) -------------
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        checks.Add(new DecisionCheck("SUBJECT_EXISTS", "Subject exists in this tenant", user is not null,
+            user is null ? "No such user inside the caller's tenant" : user.DisplayName));
+        if (user is null)
+            return await FinalizeAsync(Denial(reasons, checks, "Subject not found in this tenant."), request, null, ct);
+
+        var department = user.DepartmentId is null
+            ? null
+            : await _db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == user.DepartmentId, ct);
+
+        var accountActive = user.LifecycleState == Identity.Domain.UserLifecycleState.Active;
+        checks.Add(new DecisionCheck("ACCOUNT_ACTIVE", "Subject account is in the ACTIVE lifecycle state", accountActive,
+            $"Lifecycle state is {user.LifecycleState}"));
+        if (!accountActive)
+            return await FinalizeAsync(
+                Denial(reasons, checks, $"User lifecycle state is {user.LifecycleState}; only ACTIVE subjects may be authorized."),
+                request, null, ct);
+
+        var resourceOk = Guid.TryParse(request.ResourceId, out var resourceId);
+        var resource = resourceOk
+            ? await _db.Resources.AsNoTracking().FirstOrDefaultAsync(r => r.Id == resourceId, ct)
+            : null;
+        checks.Add(new DecisionCheck("RESOURCE_EXISTS", "Resource exists in this tenant", resource is not null,
+            resource is null ? "No such resource inside the caller's tenant" : resource.Name));
+        if (resource is null)
+            return await FinalizeAsync(Denial(reasons, checks, "Resource not found in this tenant."), request, null, ct);
+
+        var application = await _db.Applications.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == resource!.ApplicationId, ct);
+
+        // --- 3. RBAC: the subject must actually hold the required permission ----
+        var requiredPermission = BuildPermissionKey(resource, request.Action);
+        var rbac = await _rbac.CheckAsync(userId, requiredPermission, ct);
+
+        if (!rbac.Satisfied)
         {
-            return Deny("Subject or resource id was not a valid identifier.");
+            // Distinguish "never had it" from "had it and it lapsed" — the second
+            // is the answer the JIT demo scenario (section 73, step 11) needs.
+            var lastGrant = await _grants.GetMostRecentGrantAsync(userId, resource.Id, requiredPermission, ct);
+            if (lastGrant is not null)
+            {
+                var lapseDetail = lastGrant.Revoked
+                    ? $"Temporary grant {lastGrant.GrantId:N} was revoked at {lastGrant.RevokedAtUtc:O} ({lastGrant.RevokedReason})."
+                    : $"Temporary grant {lastGrant.GrantId:N} expired at {lastGrant.ExpiresAtUtc:O}.";
+
+                checks.Add(new DecisionCheck("PERMISSION_HELD", $"Subject holds '{requiredPermission}'", false, lapseDetail));
+                reasons.Add("Temporary access expired.");
+                reasons.Add(lapseDetail);
+            }
+            else
+            {
+                checks.Add(new DecisionCheck("PERMISSION_HELD", $"Subject holds '{requiredPermission}'", false, rbac.Explanation));
+                reasons.Add($"Required permission missing: {requiredPermission}.");
+            }
+
+            return await FinalizeAsync(
+                new AuthorizationDecisionOutcome
+                {
+                    Result = AuthorizationDecisionResult.Deny,
+                    Reasons = reasons,
+                    Checks = checks,
+                    RequiredPermissionKey = requiredPermission
+                }, request, requiredPermission, ct);
         }
 
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        var resource = await _db.Resources.AsNoTracking()
-            .FirstOrDefaultAsync(r => r.Id == resourceId, ct);
+        checks.Add(new DecisionCheck("PERMISSION_HELD", $"Subject holds '{requiredPermission}'", true, rbac.Explanation));
 
-        if (user is null) return Deny("Subject not found or not in this tenant.");
-        if (resource is null) return Deny("Resource not found or not in this tenant.");
-        if (user.LifecycleState != Identity.Domain.UserLifecycleState.Active)
-            return Deny($"User lifecycle state is {user.LifecycleState}, not ACTIVE.");
-
+        // --- 4. Attribute bag built from real column values ---------------------
         var attributes = new AttributeBag();
         attributes.Set("user.id", user.Id.ToString());
+        attributes.Set("user.name", user.DisplayName);
         attributes.Set("user.status", user.LifecycleState);
         attributes.Set("user.riskLevel", user.RiskLevel);
+        attributes.Set("user.clearance", user.Clearance);
+        attributes.Set("user.department", department?.Name);
+        attributes.Set("user.roles", string.Join(",", (await _rbac.ResolveAsync(userId, ct)).RoleNames));
         attributes.Set("resource.id", resource.Id.ToString());
+        attributes.Set("resource.name", resource.Name);
+        attributes.Set("resource.type", resource.ResourceType);
         attributes.Set("resource.classification", resource.Classification);
         attributes.Set("resource.department", resource.OwnerDepartment);
         attributes.Set("resource.environment", resource.Environment);
+        attributes.Set("resource.owner", resource.OwnerDepartment);
+        attributes.Set("application.name", application?.Name);
+        attributes.Set("application.environment", application?.Environment);
         attributes.Set("request.action", request.Action);
         attributes.Set("request.environment", request.Environment);
         attributes.Set("request.ip", request.Ip);
-        attributes.Set("request.deviceTrust", request.DeviceTrust ?? "UNKNOWN");
-        attributes.Set("request.authenticationStrength", request.AuthenticationStrength ?? "STANDARD");
+        attributes.Set("request.time", DateTimeOffset.UtcNow.ToString("O"));
+        attributes.Set("request.deviceTrust", string.IsNullOrWhiteSpace(request.DeviceTrust) ? "UNKNOWN" : request.DeviceTrust);
+        attributes.Set("request.authenticationStrength",
+            string.IsNullOrWhiteSpace(request.AuthenticationStrength) ? "STANDARD" : request.AuthenticationStrength);
 
+        // --- 5. Risk (explainable, additive — see RiskEvaluationService) --------
         var risk = await _risk.EvaluateAsync(userId, request, ct);
         _metrics.RecordRiskEvaluation();
         attributes.Set("request.riskLevel", risk.Level);
         attributes.Set("request.riskScore", risk.TotalScore.ToString());
 
-        // Published policy versions are read through the Redis-backed cache
-        // (RedisPolicyCache) — falls back to direct Postgres reads if Redis is
-        // down, and is invalidated whenever a new version is published.
+        // --- 6. Policy evaluation against the published version set -------------
         var candidateVersions = await _policyCache.GetPublishedVersionsAsync(_tenant.OrganizationId, ct);
+        checks.Add(new DecisionCheck("POLICY_LOADED", "Published policy set loaded", candidateVersions.Count > 0,
+            $"{candidateVersions.Count} published policy version(s) in scope"));
 
         var policyOutcome = _engine.Evaluate(candidateVersions, attributes);
-        var outcome = ApplyRiskGate(policyOutcome, risk);
+        var policyName = policyOutcome.MatchedRule is null
+            ? null
+            : await _db.Policies.AsNoTracking()
+                .Where(p => p.Id == policyOutcome.MatchedRule.PolicyId)
+                .Select(p => p.Name)
+                .FirstOrDefaultAsync(ct);
 
+        // --- 7. Risk gate: can only tighten a policy verdict, never loosen it ---
+        var (result, riskNotes) = ApplyRiskGate(policyOutcome.Result, risk);
+        reasons.AddRange(policyOutcome.Reasons);
+        reasons.AddRange(riskNotes);
+
+        var mergedChecks = checks.Concat(policyOutcome.Checks).ToList();
+        mergedChecks.Add(new DecisionCheck(
+            "RISK_WITHIN_TOLERANCE",
+            $"Risk score {risk.TotalScore} is within the threshold for {policyOutcome.Result}",
+            result == policyOutcome.Result || result != AuthorizationDecisionResult.Deny,
+            $"{risk.Level}; approval threshold {_security.RiskApprovalThreshold}, deny threshold {_security.RiskDenyThreshold}"));
+
+        var expiresAt = policyOutcome.ExpiresAtUtc
+            ?? (rbac.ExpiresAtUtc is not null && policyOutcome.Result == AuthorizationDecisionResult.Allow
+                ? rbac.ExpiresAtUtc
+                : null);
+
+        var outcome = new AuthorizationDecisionOutcome
+        {
+            Result = result,
+            Reasons = reasons,
+            Checks = mergedChecks,
+            MatchedRule = policyOutcome.MatchedRule,
+            PolicyName = policyName,
+            RiskScore = risk.TotalScore,
+            RiskLevel = risk.Level,
+            RequiredPermissionKey = requiredPermission,
+            ExpiresAtUtc = expiresAt
+        };
+
+        return await FinalizeAsync(outcome, request, requiredPermission, ct);
+    }
+
+    /// <summary>
+    /// Persists the decision and writes the audit event. Kept in one place so
+    /// there is exactly one code path that can produce an audited decision —
+    /// including the early DENY returns above.
+    /// </summary>
+    private async Task<AuthorizationDecisionOutcome> FinalizeAsync(
+        AuthorizationDecisionOutcome outcome, AuthorizationRequest request, string? permissionKey, CancellationToken ct)
+    {
         _db.AuthorizationDecisions.Add(new AuthorizationDecisionRecord
         {
             Id = outcome.DecisionId,
@@ -121,10 +266,23 @@ public sealed class AuthorizationService : IAuthorizationService
             SubjectUserId = request.SubjectUserId,
             ResourceId = request.ResourceId,
             Action = request.Action,
+            Environment = request.Environment,
             Result = outcome.Result.ToString(),
             PolicyId = outcome.MatchedRule?.PolicyId,
             PolicyVersionId = outcome.MatchedRule?.PolicyVersionId,
+            RiskScore = outcome.RiskScore,
+            RiskLevel = outcome.RiskLevel,
+            RequiredPermissionKey = permissionKey,
             ReasonsJson = System.Text.Json.JsonSerializer.Serialize(outcome.Reasons),
+            ChecksJson = System.Text.Json.JsonSerializer.Serialize(outcome.Checks),
+            ContextJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                request.Ip,
+                request.DeviceTrust,
+                request.AuthenticationStrength,
+                request.IdempotencyKey
+            }),
+            CorrelationId = request.IdempotencyKey,
             ExpiresAtUtc = outcome.ExpiresAtUtc
         });
         await _db.SaveChangesAsync(ct);
@@ -142,47 +300,56 @@ public sealed class AuthorizationService : IAuthorizationService
     }
 
     /// <summary>
-    /// Risk-based authorization per spec section 18: risk can only escalate a
-    /// policy's verdict toward stricter (never loosen a policy DENY into an
-    /// ALLOW). Thresholds: &lt;30 no change, 30-60 no change to result but
-    /// flagged, 60-80 escalate ALLOW to REQUIRE_APPROVAL, &gt;80 escalate to DENY.
+    /// Risk-based authorization (spec section 18). Risk may only escalate a
+    /// policy verdict toward stricter: a policy DENY is never softened, and a
+    /// policy REQUIRE_APPROVAL is never turned into an ALLOW.
+    /// Thresholds come from <see cref="SecurityOptions"/> so they are
+    /// configurable without a redeploy of code.
     /// </summary>
-    private static AuthorizationDecisionOutcome ApplyRiskGate(AuthorizationDecisionOutcome policyOutcome, RiskManagement.Application.RiskAssessment risk)
+    private (AuthorizationDecisionResult Result, List<string> Notes) ApplyRiskGate(
+        AuthorizationDecisionResult policyResult, RiskAssessment risk)
     {
-        var reasons = policyOutcome.Reasons.ToList();
-        var result = policyOutcome.Result;
+        var notes = new List<string>();
+        if (policyResult != AuthorizationDecisionResult.Allow)
+            return (policyResult, notes);
 
-        if (policyOutcome.Result == AuthorizationDecisionResult.Allow)
+        if (risk.TotalScore >= _security.RiskDenyThreshold)
         {
-            if (risk.TotalScore > 80)
-            {
-                result = AuthorizationDecisionResult.Deny;
-                reasons.Add($"Risk gate: score {risk.TotalScore} (>80) overrides policy ALLOW with DENY.");
-            }
-            else if (risk.TotalScore > 60)
-            {
-                result = AuthorizationDecisionResult.RequireApproval;
-                reasons.Add($"Risk gate: score {risk.TotalScore} (60-80) escalates ALLOW to REQUIRE_APPROVAL.");
-            }
-            else if (risk.TotalScore > 30)
-            {
-                reasons.Add($"Risk gate: score {risk.TotalScore} (30-60) — ALLOW retained, additional verification recommended.");
-            }
+            notes.Add($"Risk gate: score {risk.TotalScore} >= {_security.RiskDenyThreshold} overrides policy ALLOW with DENY.");
+            return (AuthorizationDecisionResult.Deny, notes);
         }
 
-        return new AuthorizationDecisionOutcome
+        if (risk.TotalScore >= _security.RiskApprovalThreshold)
         {
-            Result = result,
-            Reasons = reasons,
-            MatchedRule = policyOutcome.MatchedRule,
-            RiskScore = risk.TotalScore,
-            ExpiresAtUtc = policyOutcome.ExpiresAtUtc
-        };
+            notes.Add($"Risk gate: score {risk.TotalScore} >= {_security.RiskApprovalThreshold} escalates ALLOW to REQUIRE_APPROVAL.");
+            return (AuthorizationDecisionResult.RequireApproval, notes);
+        }
+
+        if (risk.TotalScore >= _security.RiskVerificationThreshold)
+        {
+            notes.Add($"Risk gate: score {risk.TotalScore} >= {_security.RiskVerificationThreshold} — ALLOW retained, step-up verification recommended.");
+        }
+
+        return (policyResult, notes);
     }
 
-    private static AuthorizationDecisionOutcome Deny(string reason) => new()
+    /// <summary>
+    /// Permission keys follow the <c>resource.action</c> convention from spec
+    /// section 9, derived from the resource's own stored prefix so the mapping
+    /// is data, not a hardcoded switch.
+    /// </summary>
+    private static string BuildPermissionKey(ResourceManagement.Domain.Resource resource, string action) =>
+        $"{resource.PermissionKeyPrefix.Trim().ToLowerInvariant()}.{action.Trim().ToLowerInvariant()}";
+
+    private static AuthorizationDecisionOutcome Denial(
+        List<string> reasons, List<DecisionCheck> checks, string reason)
     {
-        Result = AuthorizationDecisionResult.Deny,
-        Reasons = new[] { reason }
-    };
+        reasons.Add(reason);
+        return new AuthorizationDecisionOutcome
+        {
+            Result = AuthorizationDecisionResult.Deny,
+            Reasons = reasons,
+            Checks = checks
+        };
+    }
 }

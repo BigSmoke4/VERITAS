@@ -1,0 +1,42 @@
+/* Modal: a hinged instrument drawer with a scrim. */
+
+.modal[hidden] { display: none; }
+
+.modal__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(16, 24, 40, 0.42);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+}
+
+.modal__dialog {
+  width: min(42rem, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--surface-panel);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(16, 24, 40, 0.35), var(--shadow-panel);
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: linear-gradient(180deg, #ffffff, #eff2f6);
+  border-bottom: 1px solid var(--edge-hairline);
+}
+.modal__body { padding: var(--space-4); }
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--edge-hairline);
+  background: linear-gradient(180deg, #f2f4f7, #e9ecf1);
+}

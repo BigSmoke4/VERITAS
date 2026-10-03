@@ -1,52 +1,120 @@
-@model Veritas.Web.Modules.Audit.Presentation.Controllers.AuditListViewModel
+@model Veritas.Web.Modules.Audit.Presentation.Controllers.AuditExplorerViewModel
 @{
     ViewData["Title"] = "Audit Explorer";
-    var totalPages = (int)Math.Ceiling(Model.TotalCount / (double)Model.PageSize);
+    var query = Model.Query;
+    var pager = new Veritas.Web.Shared.Presentation.PagerModel
+    {
+        Total = Model.Total,
+        Page = Model.Page,
+        PageSize = Model.PageSize,
+        UrlFor = page => Url.Action("Index", new
+        {
+            action = query.Action, actorUserId = query.ActorUserId, resourceId = query.ResourceId,
+            correlationId = query.CorrelationId, ip = query.Ip, from = query.From, to = query.To,
+            page, pageSize = Model.PageSize
+        })
+    };
 }
 
-<h1>Audit Explorer</h1>
+<div class="page-header">
+    <div>
+        <h1>Audit Explorer</h1>
+        <p class="lede">Append-only security audit stream. Filtering and paging happen in PostgreSQL.</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm" asp-action="Export"
+           asp-route-action="@query.Action" asp-route-resourceId="@query.ResourceId"
+           asp-route-correlationId="@query.CorrelationId" asp-route-ip="@query.Ip"
+           asp-route-from="@query.From" asp-route-to="@query.To">Export CSV</a>
+    </div>
+</div>
 
-<form method="get" class="filter-bar">
-    <input type="text" name="action" value="@Model.ActionFilter" placeholder="Filter by action (e.g. AUTHORIZATION_DENIED)" />
-    <button type="submit">Filter</button>
+<form class="filters" method="get" asp-action="Index" data-filter-form aria-label="Audit filters">
+    <input type="hidden" name="pageSize" value="@Model.PageSize" />
+    <div class="field">
+        <label class="field__label" for="action">Action</label>
+        <select class="select" id="action" name="action" data-autosubmit>
+            <option value="">All actions</option>
+            @foreach (var option in Model.AvailableActions)
+            {
+                <option value="@option" selected="@(query.Action == option)">@option</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label class="field__label" for="resourceId">Resource ID</label>
+        <input class="input mono" id="resourceId" name="resourceId" value="@query.ResourceId" placeholder="guid" />
+    </div>
+    <div class="field">
+        <label class="field__label" for="correlationId">Correlation ID</label>
+        <input class="input mono" id="correlationId" name="correlationId" value="@query.CorrelationId" />
+    </div>
+    <div class="field">
+        <label class="field__label" for="ip">Source IP</label>
+        <input class="input mono" id="ip" name="ip" value="@query.Ip" />
+    </div>
+    <div class="field">
+        <label class="field__label" for="from">From (UTC)</label>
+        <input class="input" type="datetime-local" id="from" name="from" value="@query.From?.ToString("yyyy-MM-ddTHH:mm")" />
+    </div>
+    <div class="field">
+        <label class="field__label" for="to">To (UTC)</label>
+        <input class="input" type="datetime-local" id="to" name="to" value="@query.To?.ToString("yyyy-MM-ddTHH:mm")" />
+    </div>
+    <div class="filters__actions">
+        <button class="btn btn--sm btn--primary" type="submit">Search</button>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Reset</a>
+    </div>
 </form>
 
-<table class="data-table" aria-label="Audit log entries">
-    <thead>
-        <tr>
-            <th scope="col">Timestamp</th>
-            <th scope="col">Action</th>
-            <th scope="col">Resource</th>
-            <th scope="col">Decision Id</th>
-            <th scope="col">Correlation Id</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.Items)
-        {
-            <tr>
-                <td>@item.TimestampUtc.ToString("u")</td>
-                <td>@item.Action</td>
-                <td>@item.ResourceId</td>
-                <td>@item.DecisionId</td>
-                <td>@item.CorrelationId</td>
-            </tr>
-        }
-        @if (Model.Items.Count == 0)
-        {
-            <tr><td colspan="5" class="muted">No audit events match this filter.</td></tr>
-        }
-    </tbody>
-</table>
-
-<nav class="pager" aria-label="Audit pagination">
-    @if (Model.Page > 1)
-    {
-        <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-action="@Model.ActionFilter">Previous</a>
-    }
-    <span>Page @Model.Page of @Math.Max(totalPages, 1)</span>
-    @if (Model.Page < totalPages)
-    {
-        <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-action="@Model.ActionFilter">Next</a>
-    }
-</nav>
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <caption>@Model.Total audit record(s) match the current filter.</caption>
+            <thead>
+                <tr>
+                    <th scope="col" data-sort-key>Timestamp (UTC)</th>
+                    <th scope="col" data-sort-key>Action</th>
+                    <th scope="col" data-sort-key>Actor</th>
+                    <th scope="col" data-sort-key>Resource</th>
+                    <th scope="col" data-sort-key>Change</th>
+                    <th scope="col" data-sort-key>Decision</th>
+                    <th scope="col" data-sort-key>IP</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Items)
+            {
+                <tr>
+                    <td class="audit-timestamp" data-audit-time="@row.TimestampUtc.ToString("O")">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="audit-action">@row.Action</td>
+                    <td>@(row.ActorName ?? row.ActorUserId?.ToString() ?? "system")</td>
+                    <td>@(row.ResourceLabel ?? row.ResourceId ?? "—")</td>
+                    <td class="small">
+                        @if (!string.IsNullOrEmpty(row.PreviousValue) || !string.IsNullOrEmpty(row.NewValue))
+                        {
+                            <span class="mono">@row.PreviousValue</span>
+                            <span aria-hidden="true">&rarr;</span>
+                            <span class="mono">@row.NewValue</span>
+                        }
+                        else { <span class="muted">—</span> }
+                    </td>
+                    <td>
+                        @if (row.DecisionId is { } decisionId)
+                        {
+                            <a class="mono" asp-action="Decision" asp-route-id="@decisionId">DEC-@decisionId.ToString("N")</a>
+                        }
+                        else { <span class="muted">—</span> }
+                    </td>
+                    <td class="mono small">@(row.Ip ?? "—")</td>
+                </tr>
+            }
+            @if (Model.Items.Count == 0)
+            {
+                <tr><td colspan="7"><p class="empty-state">No audit records match this filter.</p></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="panel__footer"><partial name="_Pager" model="@pager" /></div>
+</section>

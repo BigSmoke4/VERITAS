@@ -1,0 +1,29 @@
+@model Veritas.Web.Modules.Approval.Presentation.ApprovalsQueueViewModel
+@{ ViewData["Title"] = "Approval Queue"; }
+
+<div class="page-header">
+    <div><h1>Approval Queue</h1><p class="lede">@Model.Total request(s) awaiting a decision.</p></div>
+</div>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead><tr><th scope="col" data-sort-key>Requester</th><th scope="col" data-sort-key>Resource</th><th scope="col" data-sort-key>Permission</th><th scope="col" data-sort-key>Duration</th><th scope="col" data-sort-key>Approval</th><th scope="col" data-sort-key>Requested (UTC)</th><th scope="col"><span class="visually-hidden">Open</span></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <th scope="row">@item.Requester</th>
+                    <td>@item.Resource</td>
+                    <td class="mono small">@item.PermissionKey</td>
+                    <td class="small">@item.Duration</td>
+                    <td class="small">@item.StepsDecided / @item.StepsTotal</td>
+                    <td class="audit-timestamp">@item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="cell-actions"><a class="btn btn--sm" asp-action="Details" asp-route-id="@item.Id">Review</a></td>
+                </tr>
+            }
+            @if (Model.Items.Count == 0) { <tr><td colspan="7"><p class="empty-state">Nothing is waiting for approval.</p></td></tr> }
+            </tbody>
+        </table>
+    </div>
+</section>

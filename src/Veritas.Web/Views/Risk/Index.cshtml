@@ -1,0 +1,90 @@
+@model Veritas.Web.Modules.RiskManagement.Application.RiskDashboard
+@{ ViewData["Title"] = "Risk"; }
+
+<div class="page-header">
+    <div><h1>Risk Dashboard</h1><p class="lede">Every point is traceable to a stored signal. Nothing here is randomly generated.</p></div>
+</div>
+
+<section class="panel" style="margin-bottom:var(--space-4);">
+    <div class="panel__body">
+        @if (Model.Evaluations30d == 0)
+        {
+            <p class="empty-state">No risk evaluations recorded in the last 30 days. Call <code>POST /api/v1/authorize</code> to generate real evaluations.</p>
+        }
+        else
+        {
+            <div class="risk-summary">
+                <div class="dial" data-dial="@((int)Math.Round(Model.AverageScore))" role="img" aria-label="Average risk score @Model.AverageScore out of 100">
+                    <div class="dial__readout">
+                        <span class="readout-value">@Model.AverageScore.ToString("0.0")</span>
+                        <p class="tiny">average</p>
+                    </div>
+                </div>
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Evaluations (30d)</dt><dd>@Model.Evaluations30d</dd></div>
+                    <div class="readout__row"><dt>High-risk evaluations</dt><dd>@Model.HighRiskEvaluations</dd></div>
+                    <div class="readout__row"><dt>Critical evaluations</dt><dd>@Model.CriticalEvaluations</dd></div>
+                </dl>
+            </div>
+        }
+    </div>
+</section>
+
+<div class="grid grid--2">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Signal contribution</h2></div>
+        <div class="panel__body">
+            <ul class="signal-breakdown">
+                @foreach (var signal in Model.SignalBreakdown)
+                {
+                    <li><span>@signal.Signal <span class="tiny">(@signal.Occurrences occurrence(s))</span></span><span class="signal-points signal-points--add">+@signal.TotalPoints</span></li>
+                }
+                @if (Model.SignalBreakdown.Count == 0) { <li><span class="muted">No signals recorded.</span><span>0</span></li> }
+            </ul>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Impact / likelihood matrix</h2></div>
+        <div class="panel__body">
+            <div class="matrix" role="table" aria-label="Risk matrix: impact versus likelihood">
+                <span class="matrix__axis"></span>
+                @foreach (var likelihood in new[] { "Low", "Med", "High" }) { <span class="matrix__axis">@likelihood</span> }
+
+                @for (var impact = 2; impact >= 0; impact--)
+                {
+                    <span class="matrix__axis">@(impact switch { 2 => "High", 1 => "Med", _ => "Low" })</span>
+                    @for (var likelihood = 0; likelihood < 3; likelihood++)
+                    {
+                        var cell = Model.Matrix.FirstOrDefault(c => c.ImpactBand == impact && c.LikelihoodBand == likelihood);
+                        <span class="matrix__cell" data-matrix-cell data-impact="@impact" data-likelihood="@likelihood"
+                              role="cell" aria-label="Impact @impact, likelihood @likelihood: @(cell?.Count ?? 0) subject(s)">@(cell?.Count ?? 0)</span>
+                    }
+                }
+            </div>
+            <p class="tiny" style="margin-top:var(--space-2);">Columns: evaluation frequency. Rows: peak score band.</p>
+        </div>
+    </section>
+</div>
+
+<section class="panel">
+    <div class="panel__header"><h2 class="panel__title">Highest-risk subjects</h2></div>
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead><tr><th scope="col" data-sort-key>Subject</th><th scope="col" data-sort-key data-numeric>Score</th><th scope="col" data-sort-key>Level</th><th scope="col" data-sort-key>Evaluated (UTC)</th><th scope="col"><span class="visually-hidden">Graph</span></th></tr></thead>
+            <tbody>
+            @foreach (var user in Model.TopUsers)
+            {
+                <tr>
+                    <th scope="row">@user.DisplayName</th>
+                    <td data-numeric>@user.LatestScore</td>
+                    <td><span class="badge badge--@(user.LatestLevel switch { "CRITICAL" or "HIGH" => "alarm", "MEDIUM" => "warn", _ => "ok" })">@user.LatestLevel</span></td>
+                    <td class="audit-timestamp">@user.EvaluatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="cell-actions"><a class="btn btn--sm btn--ghost" asp-controller="IdentityPage" asp-action="Details" asp-route-id="@user.UserId">Open</a></td>
+                </tr>
+            }
+            @if (Model.TopUsers.Count == 0) { <tr><td colspan="5"><p class="empty-state">No risk evaluations recorded.</p></td></tr> }
+            </tbody>
+        </table>
+    </div>
+</section>

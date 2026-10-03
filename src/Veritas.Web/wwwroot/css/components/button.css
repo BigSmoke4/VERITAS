@@ -1,0 +1,100 @@
+/* Physical buttons: machined keycaps with a real pressed state. */
+
+.btn {
+  --btn-bg: var(--surface-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.4375rem 0.875rem;
+  font-size: var(--fs-500);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.btn:hover { background: linear-gradient(180deg, #ffffff 0%, #f3f6f9 55%, #e7ebf0 100%); color: var(--text-primary); }
+
+.btn:active {
+  transform: translateY(1px);
+  background: var(--surface-control-active);
+  box-shadow: var(--shadow-control-pressed);
+}
+
+.btn[disabled], .btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn--primary {
+  --btn-bg: linear-gradient(180deg, #2a6fe0 0%, #0b57d0 55%, #0a4bb4 100%);
+  color: var(--text-on-accent);
+  border-color: #0842a0;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.btn--primary:hover { background: linear-gradient(180deg, #3d7de8 0%, #1261da 55%, #0b52c2 100%); color: var(--text-on-accent); }
+
+.btn--danger {
+  --btn-bg: linear-gradient(180deg, #d0453c 0%, #b3261e 55%, #9c2019 100%);
+  color: var(--text-on-accent);
+  border-color: #8d1c15;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.btn--ghost {
+  --btn-bg: transparent;
+  border-color: var(--edge-hairline);
+  box-shadow: none;
+}
+.btn--ghost:hover { background: var(--surface-recessed); }
+
+.btn--sm { padding: 0.25rem 0.5625rem; font-size: var(--fs-400); }
+.btn--lg { padding: 0.625rem 1.25rem; font-size: var(--fs-600); }
+.btn--block { width: 100%; }
+
+/* Toggle switch: a physical rocker, with the state announced to AT. */
+.switch { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.switch__track {
+  position: relative;
+  width: 2.75rem; height: 1.375rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--edge-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow-recess);
+  transition: background var(--transition-base);
+}
+.switch__thumb {
+  position: absolute;
+  top: 1px; left: 1px;
+  width: 1.125rem; height: 1.125rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffffff, #d8dde4);
+  border: 1px solid var(--edge-strong);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.35);
+  transition: left var(--transition-base);
+}
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch input:checked + .switch__track { background: linear-gradient(180deg, #1f8a4c, #166b3a); border-color: #12592f; }
+.switch input:checked + .switch__track .switch__thumb { left: calc(100% - 1.25rem); }
+.switch input:focus-visible + .switch__track { box-shadow: var(--shadow-focus); }
+
+/* Legacy single-hyphen spelling still used by a few pre-existing screens.
+   Kept as an alias rather than a second definition so the two cannot drift. */
+.btn-danger {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--edge-strong));
+  background: linear-gradient(180deg, #fff3f3 0%, #fde6e6 55%, #f7d5d5 100%);
+  color: color-mix(in srgb, var(--danger) 78%, var(--text-primary));
+}
+
+.btn-danger:hover {
+  background: linear-gradient(180deg, #ffe9e9 0%, #fbd9d9 55%, #f3c8c8 100%);
+}

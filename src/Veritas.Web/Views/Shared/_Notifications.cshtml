@@ -1,0 +1,12 @@
+@{
+    var notice = TempData["veritas.notice"] as string;
+    var tone = TempData["veritas.notice.tone"] as string ?? "info";
+}
+@if (!string.IsNullOrWhiteSpace(notice))
+{
+    <div class="notice @(tone == "alarm" ? "notice--alarm" : tone == "warn" ? "notice--warn" : string.Empty)"
+         role="status" data-server-notice data-tone="@tone">
+        <span class="status-lamp status-lamp--@(tone == "alarm" ? "alarm" : tone == "warn" ? "warn" : "info")" aria-hidden="true"></span>
+        <span>@notice</span>
+    </div>
+}

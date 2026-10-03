@@ -1,0 +1,4 @@
+/* Audit explorer page composition. */
+
+.audit-explorer__toolbar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.audit-explorer__count { font-size: var(--fs-400); color: var(--text-muted); font-variant-numeric: tabular-nums; }

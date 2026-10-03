@@ -1,0 +1,88 @@
+@model Veritas.Web.Modules.Audit.Application.DecisionExplanationView
+@{
+    ViewData["Title"] = $"Decision {Model.PublicDecisionId}";
+    var variant = Model.Result switch
+    {
+        "Allow" => "allow",
+        "Deny" => "deny",
+        "RequireApproval" => "approval",
+        _ => "mfa"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Authorization Decision</h1>
+        <p class="lede mono">@Model.PublicDecisionId</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Back to decisions</a>
+    </div>
+</div>
+
+<section class="decision-banner decision-banner--@variant" role="status" style="margin-bottom:var(--space-4);">
+    <span class="status-lamp status-lamp--lg status-lamp--@(Model.Result == "Allow" ? "ok" : Model.Result == "Deny" ? "alarm" : "warn")" aria-hidden="true"></span>
+    <div>
+        <p class="decision-banner__result">@Model.Result</p>
+        <p class="small muted">Evaluated @Model.EvaluatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</p>
+    </div>
+</section>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Why this decision was made</h2></div>
+        <div class="panel__body">
+            @if (Model.Checks.Count == 0)
+            {
+                <p class="empty-state">This decision predates check recording, so only its reasons are available.</p>
+            }
+            <ul class="check-list">
+                @foreach (var check in Model.Checks)
+                {
+                    <li class="check-list__item">
+                        <span class="check-mark check-mark--@(check.Passed ? "pass" : "fail")" aria-hidden="true">@(check.Passed ? "✓" : "✗")</span>
+                        <div>
+                            <p><strong>@check.Description</strong> <span class="badge badge--@(check.Passed ? "ok" : "alarm")">@(check.Passed ? "PASS" : "FAIL")</span></p>
+                            @if (!string.IsNullOrEmpty(check.Detail))
+                            {
+                                <p class="check-detail">@check.Detail</p>
+                            }
+                            <p class="tiny mono">@check.Code</p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Request context</h2></div>
+            <div class="panel__body">
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Subject</dt><dd>@(Model.SubjectName ?? Model.Subject)</dd></div>
+                    <div class="readout__row"><dt>Resource</dt><dd>@Model.ResourceLabel</dd></div>
+                    <div class="readout__row"><dt>Action</dt><dd class="mono">@Model.Action</dd></div>
+                    <div class="readout__row"><dt>Environment</dt><dd>@Model.Environment</dd></div>
+                    <div class="readout__row"><dt>Required permission</dt><dd class="mono">@(Model.RequiredPermissionKey ?? "—")</dd></div>
+                    <div class="readout__row"><dt>Risk</dt><dd>@(Model.RiskScore?.ToString() ?? "—") / 100 (@(Model.RiskLevel ?? "—"))</dd></div>
+                    <div class="readout__row"><dt>Policy</dt><dd>@(Model.PolicyName ?? "—") @(Model.PolicyVersionNumber is { } v ? $"v{v}" : "")</dd></div>
+                    <div class="readout__row"><dt>Entitlement expires</dt><dd>@(Model.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "no expiry")</dd></div>
+                    <div class="readout__row"><dt>Correlation</dt><dd class="mono small">@(Model.CorrelationId ?? "—")</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Reasons</h2></div>
+            <div class="panel__body">
+                <ul class="stack stack--tight" role="list">
+                    @foreach (var reason in Model.Reasons)
+                    {
+                        <li class="small">@reason</li>
+                    }
+                </ul>
+            </div>
+        </section>
+    </div>
+</div>

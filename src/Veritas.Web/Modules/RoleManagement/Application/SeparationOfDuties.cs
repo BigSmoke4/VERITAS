@@ -13,6 +13,14 @@ public interface ISeparationOfDutiesEvaluator
     /// <summary>Checks whether granting `role` to `userId` would create a conflict
     /// with any permission the user already effectively holds through another role.</summary>
     Task<SoDViolation?> CheckAsync(Guid userId, Guid candidateRoleId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Same rule applied to a single permission key — used by the access-request
+    /// path, where a user asks for a permission directly rather than for a role
+    /// (spec section 74: a Finance Manager holding payment.create asking for
+    /// payment.approve must be refused at request time).
+    /// </summary>
+    Task<SoDViolation?> CheckPermissionAsync(Guid userId, string candidatePermissionKey, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -54,11 +62,42 @@ public sealed class SeparationOfDutiesEvaluator : ISeparationOfDutiesEvaluator
 
         return null;
     }
+
+    public async Task<SoDViolation?> CheckPermissionAsync(Guid userId, string candidatePermissionKey, CancellationToken ct = default)
+    {
+        var existingPermissionKeys = await _db.UserRoles2
+            .Where(ur => ur.UserId == userId)
+            .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Key))
+            .Distinct()
+            .ToListAsync(ct);
+
+        var conflictRules = await _db.SoDConflictRules.AsNoTracking().ToListAsync(ct);
+
+        foreach (var rule in conflictRules)
+        {
+            var candidateIsA = string.Equals(rule.PermissionKeyA, candidatePermissionKey, StringComparison.OrdinalIgnoreCase);
+            var candidateIsB = string.Equals(rule.PermissionKeyB, candidatePermissionKey, StringComparison.OrdinalIgnoreCase);
+            if (!candidateIsA && !candidateIsB) continue;
+
+            var counterpart = candidateIsA ? rule.PermissionKeyB : rule.PermissionKeyA;
+            if (existingPermissionKeys.Contains(counterpart, StringComparer.OrdinalIgnoreCase))
+                return new SoDViolation(rule.PermissionKeyA, rule.PermissionKeyB, rule.Description);
+        }
+
+        return null;
+    }
 }
+
+public sealed record RoleAssignmentOutcome(bool Succeeded, string? Error);
 
 public interface IRoleAssignmentService
 {
-    Task AssignRoleAsync(Guid userId, Guid roleId, DateTimeOffset? expiresAtUtc, CancellationToken ct = default);
+    /// <summary>
+    /// The single write path for UserRole rows. Returns a failed outcome (and
+    /// audits it) when Separation-of-Duties would be violated, rather than
+    /// throwing — callers surface the conflict to the user verbatim.
+    /// </summary>
+    Task<RoleAssignmentOutcome> AssignRoleAsync(Guid userId, Guid roleId, DateTimeOffset? expiresAtUtc, CancellationToken ct = default);
 }
 
 /// <summary>The only entry point that should write UserRole rows — enforces SoD every time, so there's no code path that bypasses it.</summary>
@@ -77,8 +116,14 @@ public sealed class RoleAssignmentService : IRoleAssignmentService
         _audit = audit;
     }
 
-    public async Task AssignRoleAsync(Guid userId, Guid roleId, DateTimeOffset? expiresAtUtc, CancellationToken ct = default)
+    public async Task<RoleAssignmentOutcome> AssignRoleAsync(Guid userId, Guid roleId, DateTimeOffset? expiresAtUtc, CancellationToken ct = default)
     {
+        var alreadyHeld = await _db.UserRoles2
+            .AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId
+                            && (ur.ExpiresAtUtc == null || ur.ExpiresAtUtc > DateTimeOffset.UtcNow), ct);
+        if (alreadyHeld)
+            return new RoleAssignmentOutcome(false, "Role is already assigned to this user.");
+
         var violation = await _sod.CheckAsync(userId, roleId, ct);
         if (violation is not null)
         {
@@ -91,8 +136,8 @@ public sealed class RoleAssignmentService : IRoleAssignmentService
                 correlationId: userId.ToString(),
                 ct: ct);
 
-            throw new InvalidOperationException(
-                $"DENIED: Separation-of-Duties violation. Conflicting permissions: {violation.PermissionKeyA}, {violation.PermissionKeyB}");
+            return new RoleAssignmentOutcome(false,
+                $"Separation-of-Duties violation. Conflicting permissions: {violation.PermissionKeyA}, {violation.PermissionKeyB}");
         }
 
         _db.UserRoles2.Add(new UserRole
@@ -105,5 +150,6 @@ public sealed class RoleAssignmentService : IRoleAssignmentService
         await _db.SaveChangesAsync(ct);
 
         await _audit.RecordAsync("ROLE_ASSIGNED", roleId.ToString(), null, null, null, userId.ToString(), ct);
+        return new RoleAssignmentOutcome(true, null);
     }
 }

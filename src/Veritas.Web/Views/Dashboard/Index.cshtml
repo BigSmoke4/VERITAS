@@ -1,43 +1,107 @@
-@model Veritas.Web.Controllers.DashboardViewModel
+@model Veritas.Web.Modules.Analytics.Application.ControlCenterSnapshot
 @{
-    ViewData["Title"] = "Control Center";
-    var totalDecisions = Model.AllowedDecisions30d + Model.DeniedDecisions30d;
-    var allowRate = totalDecisions == 0 ? 0 : (double)Model.AllowedDecisions30d / totalDecisions * 100;
+    ViewData["Title"] = "Security Control Center";
+    var healthState = Model.Denied30d == 0 && Model.Decisions30d == 0 ? "idle"
+        : Model.AllowedRatePercent >= 95 ? "ok"
+        : Model.AllowedRatePercent >= 80 ? "warn" : "alarm";
 }
 
-<h1>VERITAS Security Control Center</h1>
+<div class="control-center__masthead">
+    <div>
+        <p class="tiny">VERITAS</p>
+        <h1 class="control-center__title">Security Control Center</h1>
+    </div>
+    <div class="row">
+        <span class="status-lamp status-lamp--lg status-lamp--@(healthState)" aria-hidden="true"></span>
+        <span class="small">
+            Last decision:
+            @(Model.LastDecisionAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "none recorded") UTC
+        </span>
+    </div>
+</div>
 
-<section class="panel-grid">
-    <div class="panel">
-        <span class="panel-label">Users</span>
-        <span class="panel-value">@Model.Users</span>
-    </div>
-    <div class="panel">
-        <span class="panel-label">Applications</span>
-        <span class="panel-value">@Model.Applications</span>
-    </div>
-    <div class="panel">
-        <span class="panel-label">Resources</span>
-        <span class="panel-value">@Model.Resources</span>
-    </div>
-    <div class="panel">
-        <span class="panel-label">Published Policies</span>
-        <span class="panel-value">@Model.PublishedPolicies</span>
-    </div>
-    <div class="panel">
-        <span class="panel-label">Pending Access Requests</span>
-        <span class="panel-value">@Model.PendingAccessRequests</span>
-    </div>
+<section class="panel-grid" aria-label="Platform counts">
+    <div class="panel panel--instrument"><span class="panel-label">Active Users</span><span class="panel-value">@Model.ActiveUsers</span><p class="tiny" style="padding:0 var(--space-4) var(--space-3);">@Model.TotalUsers total accounts</p></div>
+    <div class="panel panel--instrument"><span class="panel-label">Applications</span><span class="panel-value">@Model.Applications</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">Resources</span><span class="panel-value">@Model.Resources</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">Active Policies</span><span class="panel-value">@Model.PublishedPolicies</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">Privileged Users</span><span class="panel-value">@Model.PrivilegedUsers</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">Pending Requests</span><span class="panel-value">@Model.PendingAccessRequests</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">High-Risk Events</span><span class="panel-value">@Model.OpenHighRiskEvents</span></div>
+    <div class="panel panel--instrument"><span class="panel-label">Live JIT Grants</span><span class="panel-value">@Model.ActiveTemporaryGrants</span></div>
 </section>
 
-<section class="panel">
-    <h2>Authorization Health (30 days)</h2>
-    @if (totalDecisions == 0)
-    {
-        <p class="muted">No authorization decisions recorded yet. Call <code>POST /api/v1/authorize</code> to generate data — this dashboard never shows fabricated numbers.</p>
-    }
-    else
-    {
-        <p>Allowed: @Model.AllowedDecisions30d (@allowRate.ToString("0.0")%) · Denied: @Model.DeniedDecisions30d</p>
-    }
-</section>
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header">
+            <span class="status-lamp status-lamp--@(healthState)" aria-hidden="true"></span>
+            <h2 class="panel__title">Authorization Health — last 30 days</h2>
+        </div>
+        <div class="panel__body">
+            @if (Model.Decisions30d == 0)
+            {
+                <p class="empty-state">
+                    No authorization decisions recorded yet. Call <code>POST /api/v1/authorize</code>
+                    to generate real data — this panel never shows fabricated numbers.
+                </p>
+            }
+            else
+            {
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Decisions evaluated</dt><dd>@Model.Decisions30d</dd></div>
+                    <div class="readout__row"><dt>Allowed</dt><dd>@Model.Allowed30d (@Model.AllowedRatePercent.ToString("0.00")%)</dd></div>
+                    <div class="readout__row"><dt>Denied</dt><dd>@Model.Denied30d</dd></div>
+                    <div class="readout__row"><dt>Approval required</dt><dd>@Model.ApprovalRequired30d</dd></div>
+                    <div class="readout__row"><dt>P95 latency</dt><dd>
+                        @if (Model.P95LatencyMs is { } p95) { @p95.ToString("0.0")<span class="readout-unit">ms</span> }
+                        else { <span class="badge badge--idle">scrape from /metrics</span> }
+                    </dd></div>
+                </dl>
+
+                <h3 class="h3" style="margin-top:var(--space-4);">14-day decision trend</h3>
+                <div class="trend-chart" data-trend-chart role="img"
+                     aria-label="Daily allowed and denied decisions over the last 14 days">
+                    @foreach (var point in Model.DecisionTrend)
+                    {
+                        <div class="trend-chart__bar"
+                             data-allowed="@point.Allowed" data-denied="@point.Denied"
+                             data-label="@point.BucketUtc.ToString("yyyy-MM-dd")"></div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Security Events</h2></div>
+            <div class="panel__body">
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Open high-risk</dt><dd>@Model.OpenHighRiskEvents</dd></div>
+                    <div class="readout__row"><dt>Open compliance findings</dt><dd>@Model.OpenComplianceFindings</dd></div>
+                    <div class="readout__row"><dt>Privileged users</dt><dd>@Model.PrivilegedUsers</dd></div>
+                </dl>
+                <a class="btn btn--sm" asp-controller="CompliancePage" asp-action="Index" style="margin-top:var(--space-3);">Open compliance console</a>
+            </div>
+        </section>
+
+        @if (Model.TopDeniedResources.Count > 0)
+        {
+            <section class="panel">
+                <div class="panel__header"><h2 class="panel__title">Most-denied resources</h2></div>
+                <div class="panel__body panel__body--flush table-scroll">
+                    <table class="data-table">
+                        <caption>Denials in the last 30 days, from stored authorization decisions.</caption>
+                        <thead><tr><th scope="col">Resource</th><th scope="col" data-numeric>Denials</th></tr></thead>
+                        <tbody>
+                        @foreach (var entry in Model.TopDeniedResources)
+                        {
+                            <tr><th scope="row">@entry.Label</th><td data-numeric>@entry.Count</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    </div>
+</div>

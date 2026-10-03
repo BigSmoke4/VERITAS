@@ -1,0 +1,79 @@
+@model Veritas.Web.Modules.Administration.Presentation.AdministrationIndexViewModel
+@{ ViewData["Title"] = "Administration"; }
+
+<div class="page-header">
+    <div><h1>Platform Administration</h1><p class="lede">Live component probes and the effective configuration in force.</p></div>
+</div>
+
+<div class="grid grid--2">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Component health (probed just now)</h2></div>
+        <div class="panel__body">
+            <ul class="stack" role="list">
+                @foreach (var component in Model.Status.Components)
+                {
+                    var tone = component.State switch { "HEALTHY" => "ok", "DEGRADED" => "warn", "UNHEALTHY" => "alarm", _ => "idle" };
+                    <li class="row row--between">
+                        <span class="row"><span class="status-lamp status-lamp--@tone" aria-hidden="true"></span><strong>@component.Name</strong></span>
+                        <span class="small muted">@component.Detail</span>
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="panel__footer">
+            <a href="/health" target="_blank" rel="noopener">/health</a> ·
+            <a href="/health/live" target="_blank" rel="noopener">/health/live</a> ·
+            <a href="/health/ready" target="_blank" rel="noopener">/health/ready</a>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Operational counters</h2></div>
+        <div class="panel__body">
+            <dl class="readout readout--stacked">
+                <div class="readout__row"><dt>Open security events</dt><dd>@Model.Status.OpenSecurityEvents</dd></div>
+                <div class="readout__row"><dt>Pending notifications</dt><dd>@Model.Status.PendingNotifications</dd></div>
+                <div class="readout__row"><dt>Active temporary grants</dt><dd>@Model.Status.ActiveTemporaryGrants</dd></div>
+            </dl>
+        </div>
+    </section>
+</div>
+
+<div class="grid grid--2" style="margin-top:var(--space-4);">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Effective configuration</h2></div>
+        <div class="panel__body">
+            <dl class="readout readout--stacked">
+                @foreach (var setting in Model.Status.EffectiveSettings)
+                {
+                    <div class="readout__row"><dt class="mono">@setting.Name</dt><dd class="mono">@setting.Value</dd></div>
+                }
+            </dl>
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Separation-of-Duties rules</h2></div>
+            <div class="panel__body">
+                <ul class="stack stack--tight" role="list">
+                    @foreach (var rule in Model.SoDRules)
+                    {
+                        <li class="small"><span class="mono">@rule.PermissionKeyA</span> ⊘ <span class="mono">@rule.PermissionKeyB</span><br /><span class="muted">@rule.Description</span></li>
+                    }
+                    @if (Model.SoDRules.Count == 0) { <li><p class="empty-state">None defined.</p></li> }
+                </ul>
+                <a class="btn btn--sm" asp-controller="RolesPage" asp-action="Index" style="margin-top:var(--space-3);">Manage SoD rules</a>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">API surface</h2></div>
+            <div class="panel__body">
+                <ul class="stack stack--tight" role="list">
+                    @foreach (var endpoint in Model.Endpoints) { <li class="small mono">@endpoint</li> }
+                </ul>
+            </div>
+        </section>
+    </div>
+</div>

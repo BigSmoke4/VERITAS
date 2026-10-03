@@ -1,0 +1,48 @@
+/* Badges and pills: stamped metal labels. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.0625rem 0.4375rem;
+  font-size: var(--fs-300);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--edge-strong);
+  background: linear-gradient(180deg, #ffffff, #e9edf2);
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 var(--edge-highlight) inset;
+  white-space: nowrap;
+}
+
+.badge--ok { color: #12602f; border-color: #9fd0b3; background: linear-gradient(180deg, #f2fbf5, #d9f0e2); }
+.badge--warn { color: #7d4f05; border-color: #e5c489; background: linear-gradient(180deg, #fdf7ec, #f6e6c6); }
+.badge--alarm { color: #8d1c15; border-color: #e7a9a4; background: linear-gradient(180deg, #fdf1f0, #f6d7d4); }
+.badge--info { color: #0842a0; border-color: #a8c2ec; background: linear-gradient(180deg, #f0f5fd, #d8e5f9); }
+.badge--idle { color: var(--text-muted); }
+
+.badge--lg { padding: 0.25rem 0.75rem; font-size: var(--fs-400); }
+
+/* Decision banners on the authorization screen. */
+.decision-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--edge-strong);
+  box-shadow: var(--shadow-recess);
+}
+.decision-banner--allow { background: linear-gradient(180deg, #f0faf3, #d9f0e2); border-color: #9fd0b3; }
+.decision-banner--deny { background: linear-gradient(180deg, #fdf1f0, #f6d7d4); border-color: #e7a9a4; }
+.decision-banner--approval { background: linear-gradient(180deg, #fdf7ec, #f6e6c6); border-color: #e5c489; }
+.decision-banner--mfa { background: linear-gradient(180deg, #f0f5fd, #d8e5f9); border-color: #a8c2ec; }
+.decision-banner__result {
+  font-family: var(--font-readout);
+  font-size: var(--fs-800);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

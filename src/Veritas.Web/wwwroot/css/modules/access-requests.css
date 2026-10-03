@@ -1,0 +1,26 @@
+/* Access requests & approvals. */
+
+.request-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3);
+}
+.request-summary__item {
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+}
+.request-summary__label { font-size: var(--fs-300); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.request-summary__value { font-size: var(--fs-600); font-weight: 600; }
+
+.justification {
+  padding: var(--space-3);
+  background: var(--surface-recessed);
+  border-left: 3px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-recess);
+  font-style: italic;
+  color: var(--text-secondary);
+}

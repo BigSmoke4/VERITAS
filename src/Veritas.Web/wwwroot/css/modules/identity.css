@@ -1,0 +1,45 @@
+/* Identity module: user ledger, lifecycle rail, credential panel. */
+
+.lifecycle-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  background: var(--surface-recessed);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-recess);
+}
+
+.lifecycle-state {
+  padding: 0.25rem 0.625rem;
+  font-size: var(--fs-300);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--edge-strong);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+.lifecycle-state--current {
+  background: linear-gradient(180deg, #e7f0fd, #cfe0f8);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  box-shadow: var(--shadow-control);
+}
+.lifecycle-arrow { color: var(--text-muted); }
+
+.credential-well {
+  padding: var(--space-3);
+  background: var(--surface-inset);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-recess);
+  font-family: var(--font-technical);
+  font-size: var(--fs-500);
+  word-break: break-all;
+}
+
+.role-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }

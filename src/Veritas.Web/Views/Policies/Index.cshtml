@@ -1,0 +1,47 @@
+@model Veritas.Web.Modules.PolicyManagement.Presentation.PoliciesIndexViewModel
+@{ ViewData["Title"] = "Policy Studio"; }
+
+<div class="page-header">
+    <div><h1>Policy Studio</h1><p class="lede">Published versions are immutable; changes go through a new version.</p></div>
+    <div class="page-header__actions"><button class="btn btn--sm btn--primary" type="button" data-modal-open="create-policy">New policy</button></div>
+</div>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead><tr><th scope="col" data-sort-key>Policy</th><th scope="col" data-sort-key>Owner</th><th scope="col" data-sort-key data-numeric>Versions</th><th scope="col" data-sort-key>Latest state</th><th scope="col" data-sort-key data-numeric>Published</th><th scope="col" data-sort-key>Last published (UTC)</th></tr></thead>
+            <tbody>
+            @foreach (var policy in Model.Policies)
+            {
+                <tr>
+                    <th scope="row"><a asp-action="Details" asp-route-id="@policy.Id">@policy.Name</a></th>
+                    <td>@policy.Owner</td>
+                    <td data-numeric>@policy.VersionCount</td>
+                    <td><span class="badge badge--@(policy.LatestStatus.ToString() == "Published" ? "ok" : "warn")">@policy.LatestStatus</span></td>
+                    <td data-numeric>@(policy.PublishedVersionNumber is { } v ? $"v{v}" : "—")</td>
+                    <td class="audit-timestamp">@(policy.LastPublishedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</td>
+                </tr>
+            }
+            @if (Model.Policies.Count == 0) { <tr><td colspan="6"><p class="empty-state">No policies yet.</p></td></tr> }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal" id="create-policy" hidden>
+    <div class="modal__scrim" data-modal-close>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="create-policy-title">
+            <form method="post" asp-action="Create" data-validate-form>
+                <div class="modal__header"><h2 class="panel__title" id="create-policy-title">New policy</h2></div>
+                <div class="modal__body">
+                    <div class="field"><label class="field__label" for="policyName">Name</label><input class="input" id="policyName" name="name" required /></div>
+                    <div class="field"><label class="field__label" for="policyOwner">Owner</label><input class="input" id="policyOwner" name="owner" value="Security" required /></div>
+                </div>
+                <div class="modal__footer">
+                    <button class="btn btn--sm btn--ghost" type="button" data-modal-close>Cancel</button>
+                    <button class="btn btn--sm btn--primary" type="submit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

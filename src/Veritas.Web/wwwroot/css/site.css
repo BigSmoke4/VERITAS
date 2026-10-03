@@ -1,1 +1,37 @@
-/* Page-specific overrides live in wwwroot/css/pages/*.css and are imported from _Layout as needed. */
+/* ==========================================================================
+   VERITAS site stylesheet — import manifest.
+   No visual rules live here: every token, primitive and page style is in the
+   core/components/modules/pages tree so nothing is duplicated (spec section 43).
+   ========================================================================== */
+
+@import url("core/variables.css");
+@import url("core/reset.css");
+@import url("core/typography.css");
+@import url("core/layout.css");
+@import url("core/accessibility.css");
+
+@import url("components/panel.css");
+@import url("components/button.css");
+@import url("components/input.css");
+@import url("components/table.css");
+@import url("components/badge.css");
+@import url("components/status-indicator.css");
+@import url("components/gauge.css");
+@import url("components/modal.css");
+@import url("components/timeline.css");
+@import url("components/tabs.css");
+@import url("components/graph.css");
+@import url("components/notification.css");
+
+@import url("modules/identity.css");
+@import url("modules/policies.css");
+@import url("modules/authorization.css");
+@import url("modules/access-requests.css");
+@import url("modules/privileged-access.css");
+@import url("modules/risk.css");
+@import url("modules/audit.css");
+
+@import url("pages/dashboard.css");
+@import url("pages/policy-studio.css");
+@import url("pages/access-graph.css");
+@import url("pages/audit-explorer.css");

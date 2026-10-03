@@ -1,0 +1,76 @@
+@model Veritas.Web.Modules.Authorization.Presentation.AuthorizationIndexViewModel
+@{
+    ViewData["Title"] = "Authorization Decisions";
+    var filter = Model.Result;
+    var pager = new Veritas.Web.Shared.Presentation.PagerModel
+    {
+        Total = Model.Total,
+        Page = Model.Page,
+        PageSize = 25,
+        UrlFor = page => Url.Action("Index", new { result = filter, page })
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Authorization Decisions</h1>
+        <p class="lede">Every decision VERITAS has made, with the policy version it was evaluated against.</p>
+    </div>
+</div>
+
+<form class="filters" method="get" asp-action="Index" data-filter-form>
+    <div class="field">
+        <label class="field__label" for="result">Result</label>
+        <select class="select" id="result" name="result" data-autosubmit>
+            <option value="">All results</option>
+            @foreach (var option in new[] { "Allow", "Deny", "RequireApproval", "RequireMfa" })
+            {
+                <option value="@option" selected="@(Model.Result == option)">@option</option>
+            }
+        </select>
+    </div>
+    <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">Apply</button>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Reset</a>
+    </div>
+</form>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <caption>@Model.Total decision(s) recorded in this tenant.</caption>
+            <thead>
+                <tr>
+                    <th scope="col" data-sort-key>Decision</th>
+                    <th scope="col" data-sort-key>Subject</th>
+                    <th scope="col" data-sort-key>Resource</th>
+                    <th scope="col" data-sort-key>Action</th>
+                    <th scope="col" data-sort-key>Result</th>
+                    <th scope="col" data-sort-key data-numeric>Risk</th>
+                    <th scope="col" data-sort-key>Evaluated (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var decision in Model.Decisions)
+            {
+                <tr>
+                    <td><a class="mono" asp-action="Decision" asp-route-id="@decision.Id">@decision.PublicDecisionId</a></td>
+                    <td>@(decision.SubjectName ?? decision.Subject)</td>
+                    <td>@decision.Resource</td>
+                    <td class="audit-action">@decision.Action</td>
+                    <td><span class="badge badge--@(decision.Result == "Allow" ? "ok" : decision.Result == "Deny" ? "alarm" : "warn")">@decision.Result</span></td>
+                    <td data-numeric>@(decision.RiskScore?.ToString() ?? "—")</td>
+                    <td class="audit-timestamp" data-audit-time="@decision.EvaluatedAtUtc.ToString("O")">@decision.EvaluatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                </tr>
+            }
+            @if (Model.Decisions.Count == 0)
+            {
+                <tr><td colspan="7"><p class="empty-state">No decisions match this filter.</p></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="panel__footer">
+        <partial name="_Pager" model="@pager" />
+    </div>
+</section>

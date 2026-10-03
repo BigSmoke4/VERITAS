@@ -1,0 +1,57 @@
+@model Veritas.Web.Modules.AccessRequest.Presentation.AccessRequestCreateViewModel
+@{ ViewData["Title"] = "Request access"; }
+
+<div class="page-header">
+    <div><h1>Request access</h1><p class="lede">Separation-of-Duties conflicts are refused before any approver is involved.</p></div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="notice notice--alarm" role="alert">
+        <span class="status-lamp status-lamp--alarm" aria-hidden="true"></span>
+        <span><strong>ACCESS DENIED</strong><br />@Model.Error</span>
+    </div>
+}
+
+<form class="panel" method="post" asp-action="Create" data-validate-form style="max-width:48rem;">
+    <div class="panel__header"><h2 class="panel__title">Request details</h2></div>
+    <div class="panel__body">
+        <div class="field">
+            <label class="field__label" for="requestedByUserId">Requesting user</label>
+            <select class="select" id="requestedByUserId" name="requestedByUserId" data-validate="required,guid" required>
+                <option value="">Select a user…</option>
+                @foreach (var user in Model.Users) { <option value="@user.Id">@user.DisplayName — @user.Email</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label class="field__label" for="resourceId">Resource</label>
+            <select class="select" id="resourceId" name="resourceId" data-validate="required,guid" required>
+                <option value="">Select a resource…</option>
+                @foreach (var resource in Model.Resources)
+                {
+                    <option value="@resource.Id">@resource.Name — @resource.Classification / @resource.Environment</option>
+                }
+            </select>
+        </div>
+        <div class="grid grid--2">
+            <div class="field">
+                <label class="field__label" for="permissionKey">Permission</label>
+                <input class="input mono" id="permissionKey" name="permissionKey" placeholder="payment.read" data-validate="required,permissionKey" required />
+                <p class="field__hint">The resource's permission prefix plus the action, e.g. <code>payment.read</code>.</p>
+            </div>
+            <div class="field">
+                <label class="field__label" for="durationMinutes">Duration (minutes)</label>
+                <input class="input" type="number" min="5" max="480" id="durationMinutes" name="durationMinutes" value="30" data-validate="required,positiveInteger" required />
+                <p class="field__hint">Capped by the platform maximum temporary-grant duration.</p>
+            </div>
+        </div>
+        <div class="field">
+            <label class="field__label" for="businessJustification">Business justification</label>
+            <textarea class="textarea" id="businessJustification" name="businessJustification" required placeholder="Incident INC-20482 — investigate reconciliation discrepancy"></textarea>
+        </div>
+    </div>
+    <div class="panel__footer row">
+        <button class="btn btn--sm btn--primary" type="submit">Submit request</button>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Cancel</a>
+    </div>
+</form>

@@ -1,0 +1,67 @@
+@model Veritas.Web.Modules.ResourceManagement.Application.ApplicationDetail
+@{ ViewData["Title"] = Model.Name; }
+
+<div class="page-header">
+    <div><h1>@Model.Name</h1><p class="lede">Owner: @Model.Owner · @Model.Environment</p></div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Back to registry</a>
+        <a class="btn btn--sm" asp-controller="ResourcesPage" asp-action="Index" asp-route-applicationId="@Model.Id">Manage resources</a>
+    </div>
+</div>
+
+<section class="panel-grid">
+    <div class="panel"><span class="panel-label">Resources</span><span class="panel-value">@Model.Resources.Count</span></div>
+    <div class="panel"><span class="panel-label">Service accounts</span><span class="panel-value">@Model.ServiceAccounts.Count</span></div>
+    <div class="panel"><span class="panel-label">Risk tier</span><span class="panel-value">@Model.RiskTier</span></div>
+    <div class="panel"><span class="panel-label">Decisions (30d)</span><span class="panel-value">@Model.AuthorizationCount30d</span></div>
+</section>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Resources</h2></div>
+        <div class="panel__body panel__body--flush table-scroll">
+            <table class="data-table">
+                <thead><tr><th scope="col">Resource</th><th scope="col">Type</th><th scope="col">Classification</th><th scope="col">Permission prefix</th></tr></thead>
+                <tbody>
+                @foreach (var resource in Model.Resources)
+                {
+                    <tr>
+                        <th scope="row">@resource.Name</th>
+                        <td class="small">@resource.ResourceType</td>
+                        <td><span class="badge badge--@(resource.Classification == "HIGHLY_CONFIDENTIAL" ? "alarm" : resource.Classification == "CONFIDENTIAL" ? "warn" : "idle")">@resource.Classification</span></td>
+                        <td class="mono small">@resource.PermissionKeyPrefix</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Service identities</h2></div>
+            <div class="panel__body">
+                <ul class="stack" role="list">
+                    @foreach (var service in Model.ServiceAccounts)
+                    {
+                        <li class="row row--between">
+                            <span><strong>@service.Name</strong><span class="tiny"> @service.Owner</span></span>
+                            <span class="badge badge--@(service.Status == "ACTIVE" ? "ok" : "idle")">@service.Status</span>
+                        </li>
+                    }
+                    @if (Model.ServiceAccounts.Count == 0) { <li><p class="empty-state">No service identities registered.</p></li> }
+                </ul>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Activity</h2></div>
+            <div class="panel__body">
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Last authorization</dt><dd>@(Model.LastAuthorizationAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</dd></div>
+                    <div class="readout__row"><dt>Decisions (30d)</dt><dd>@Model.AuthorizationCount30d</dd></div>
+                </dl>
+            </div>
+        </section>
+    </div>
+</div>

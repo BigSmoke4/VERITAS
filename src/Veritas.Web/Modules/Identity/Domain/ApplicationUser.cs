@@ -15,6 +15,19 @@ public class ApplicationUser : IdentityUser<Guid>, ITenantOwned
     public string DisplayName { get; set; } = default!;
     public string LifecycleState { get; set; } = UserLifecycleState.Invited;
     public string RiskLevel { get; set; } = "LOW";
+
+    /// <summary>
+    /// PUBLIC / INTERNAL / CONFIDENTIAL / HIGHLY_CONFIDENTIAL. Compared against
+    /// resource.classification by policy conditions (spec section 10).
+    /// </summary>
+    public string Clearance { get; set; } = "INTERNAL";
+
+    public string? JobTitle { get; set; }
+    public string? Location { get; set; }
+    public string? Country { get; set; }
+    public DateTimeOffset? SuspendedAtUtc { get; set; }
+    public string? SuspensionReason { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAtUtc { get; set; }
     public bool IsDeleted { get; set; }
 }

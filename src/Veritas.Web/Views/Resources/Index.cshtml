@@ -1,0 +1,94 @@
+@model Veritas.Web.Modules.ResourceManagement.Presentation.ResourcesIndexViewModel
+@{ ViewData["Title"] = "Resources"; }
+
+<div class="page-header">
+    <div><h1>Resources</h1><p class="lede">Each resource carries the permission prefix used to build its <code>resource.action</code> keys.</p></div>
+    <div class="page-header__actions"><button class="btn btn--sm btn--primary" type="button" data-modal-open="create-resource">Create resource</button></div>
+</div>
+
+<form class="filters" method="get" asp-action="Index" data-filter-form>
+    <div class="field">
+        <label class="field__label" for="applicationId">Application</label>
+        <select class="select" id="applicationId" name="applicationId" data-autosubmit>
+            <option value="">All applications</option>
+            @foreach (var app in Model.Applications)
+            {
+                <option value="@app.Id" selected="@(Model.ApplicationId == app.Id)">@app.Name</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label class="field__label" for="classification">Classification</label>
+        <select class="select" id="classification" name="classification" data-autosubmit>
+            <option value="">All</option>
+            @foreach (var level in new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL" })
+            {
+                <option value="@level" selected="@(Model.Classification == level)">@level</option>
+            }
+        </select>
+    </div>
+</form>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead><tr><th scope="col" data-sort-key>Resource</th><th scope="col" data-sort-key>Application</th><th scope="col" data-sort-key>Type</th><th scope="col" data-sort-key>Classification</th><th scope="col" data-sort-key>Environment</th><th scope="col" data-sort-key>Owner dept</th><th scope="col" data-sort-key>Permission prefix</th></tr></thead>
+            <tbody>
+            @foreach (var resource in Model.Resources)
+            {
+                <tr>
+                    <th scope="row">@resource.Name</th>
+                    <td class="small">@resource.ApplicationName</td>
+                    <td class="small">@resource.ResourceType</td>
+                    <td><span class="badge badge--@(resource.Classification == "HIGHLY_CONFIDENTIAL" ? "alarm" : resource.Classification == "CONFIDENTIAL" ? "warn" : "idle")">@resource.Classification</span></td>
+                    <td class="small">@resource.Environment</td>
+                    <td class="small">@(resource.OwnerDepartment ?? "—")</td>
+                    <td class="mono small">@resource.PermissionKeyPrefix</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal" id="create-resource" hidden>
+    <div class="modal__scrim" data-modal-close>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="create-resource-title">
+            <form method="post" asp-action="Create" data-validate-form>
+                <div class="modal__header"><h2 class="panel__title" id="create-resource-title">Create resource</h2></div>
+                <div class="modal__body">
+                    <div class="field">
+                        <label class="field__label" for="resApp">Application</label>
+                        <select class="select" id="resApp" name="applicationId" required>
+                            @foreach (var app in Model.Applications) { <option value="@app.Id">@app.Name</option> }
+                        </select>
+                    </div>
+                    <div class="field"><label class="field__label" for="resName">Name</label><input class="input" id="resName" name="name" required /></div>
+                    <div class="field"><label class="field__label" for="resType">Type</label><input class="input" id="resType" name="resourceType" value="database" required /></div>
+                    <div class="field">
+                        <label class="field__label" for="resClass">Classification</label>
+                        <select class="select" id="resClass" name="classification">
+                            @foreach (var level in new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL" }) { <option value="@level">@level</option> }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="resEnv">Environment</label>
+                        <select class="select" id="resEnv" name="environment">
+                            @foreach (var env in new[] { "production", "staging", "development" }) { <option value="@env">@env</option> }
+                        </select>
+                    </div>
+                    <div class="field"><label class="field__label" for="resDept">Owning department</label><input class="input" id="resDept" name="ownerDepartment" /></div>
+                    <div class="field">
+                        <label class="field__label" for="resPrefix">Permission prefix</label>
+                        <input class="input mono" id="resPrefix" name="permissionKeyPrefix" placeholder="payment" required />
+                        <p class="field__hint">Action <code>read</code> on this resource resolves to <code>&lt;prefix&gt;.read</code>.</p>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button class="btn btn--sm btn--ghost" type="button" data-modal-close>Cancel</button>
+                    <button class="btn btn--sm btn--primary" type="submit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

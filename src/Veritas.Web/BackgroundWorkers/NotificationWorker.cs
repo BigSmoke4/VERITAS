@@ -14,16 +14,22 @@ namespace Veritas.Web.BackgroundWorkers;
 /// </summary>
 public sealed class NotificationWorker : BackgroundService
 {
-    private const int MaxAttempts = 5;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
-
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationWorker> _logger;
+    private readonly int MaxAttempts;
+    private readonly TimeSpan PollInterval;
+    private readonly int OutboxBatchSize;
 
-    public NotificationWorker(IServiceScopeFactory scopeFactory, ILogger<NotificationWorker> logger)
+    public NotificationWorker(
+        IServiceScopeFactory scopeFactory,
+        ILogger<NotificationWorker> logger,
+        Microsoft.Extensions.Options.IOptions<Veritas.Web.Shared.Application.Configuration.NotificationOptions> options)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        MaxAttempts = options.Value.MaxDeliveryAttempts;
+        PollInterval = options.Value.WorkerPollInterval;
+        OutboxBatchSize = options.Value.OutboxBatchSize;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -51,7 +57,7 @@ public sealed class NotificationWorker : BackgroundService
             .IgnoreQueryFilters()
             .Where(n => n.Status == NotificationStatus.Pending && n.AttemptCount < MaxAttempts)
             .OrderBy(n => n.CreatedAtUtc)
-            .Take(50)
+            .Take(OutboxBatchSize)
             .ToListAsync(ct);
 
         if (pending.Count == 0) return;

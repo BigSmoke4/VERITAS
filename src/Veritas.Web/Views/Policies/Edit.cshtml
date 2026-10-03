@@ -1,0 +1,94 @@
+@model Veritas.Web.Modules.PolicyManagement.Presentation.PolicyEditViewModel
+@{
+    ViewData["Title"] = $"Edit {Model.Version.PolicyName} v{Model.Version.VersionNumber}";
+    var version = Model.Version;
+    var immutable = version.Status.ToString() is "Published" or "Deprecated";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@version.PolicyName — v@version.VersionNumber</h1>
+        <p class="lede">@version.Status @(immutable ? "· immutable. Create a new draft to change it." : "· editable draft")</p>
+    </div>
+    <div class="page-header__actions"><a class="btn btn--sm btn--ghost" asp-action="Details" asp-route-id="@version.PolicyId" asp-route-versionId="@version.Id">Back</a></div>
+</div>
+
+@if (Model.Errors.Count > 0)
+{
+    <div class="notice notice--alarm" role="alert"><ul role="list">@foreach (var e in Model.Errors) { <li>@e</li> }</ul></div>
+}
+
+<form class="panel" method="post" asp-action="SaveRules" data-rule-builder data-condition-seq="@version.Rules.Sum(r => r.Conditions.Count)">
+    <input type="hidden" name="versionId" value="@version.Id" />
+    <div class="panel__header">
+        <h2 class="panel__title">Rule builder</h2>
+        <span class="panel__subtitle">Structured conditions only — policy input is data, never code.</span>
+    </div>
+    <div class="panel__body">
+        @for (var r = 0; r < version.Rules.Count; r++)
+        {
+            var rule = version.Rules[r];
+            <article class="rule-card">
+                <div class="rule-card__header">
+                    <label class="tiny" for="priority-@r">Priority</label>
+                    <input class="input" style="width:5rem;" id="priority-@r" name="rulePriority" type="number" value="@rule.Priority" />
+                    <input type="hidden" name="ruleOrder" value="@r" />
+                    <label class="tiny" for="effect-@r">Then</label>
+                    <select class="select" id="effect-@r" name="ruleEffect" style="width:auto;">
+                        @foreach (var effect in new[] { "Allow", "Deny", "RequireApproval", "RequireMfa" })
+                        {
+                            <option value="@effect" selected="@(rule.Effect.ToString() == effect)">@effect</option>
+                        }
+                    </select>
+                </div>
+                <div class="rule-card__body" data-conditions-for="@r">
+                    @foreach (var condition in rule.Conditions)
+                    {
+                        <div class="condition-row">
+                            <input type="hidden" name="ruleIndex" value="@r" />
+                            <select class="select" name="conditionAttribute">
+                                @foreach (var attr in PoliciesPageController.AttributeCatalog)
+                                {
+                                    <option value="@attr" selected="@(condition.Attribute == attr)">@attr</option>
+                                }
+                            </select>
+                            <select class="select" name="conditionOperator">
+                                @foreach (var op in new[] { "Equals", "NotEquals", "LessThanOrEqual", "GreaterThanOrEqual", "In" })
+                                {
+                                    <option value="@op" selected="@(condition.Operator.ToString() == op)">@op</option>
+                                }
+                            </select>
+                            <input class="input" name="conditionValue" value="@condition.Value" />
+                            <label class="row tiny"><input type="checkbox" name="conditionIsRef" value="true" checked="@condition.IsValueAttributeRef" /><input type="hidden" name="conditionIsRef" value="false" /> attr ref</label>
+                            <button class="btn btn--sm btn--ghost" type="button" data-remove-condition aria-label="Remove condition">✕</button>
+                        </div>
+                    }
+                    <button class="btn btn--sm" type="button" data-add-condition="@r">+ Add condition</button>
+                </div>
+            </article>
+        }
+
+        @if (version.Rules.Count == 0)
+        {
+            <p class="empty-state">No rules yet. Add the first one below.</p>
+            <article class="rule-card">
+                <div class="rule-card__header">
+                    <label class="tiny" for="priority-0">Priority</label>
+                    <input class="input" style="width:5rem;" id="priority-0" name="rulePriority" type="number" value="1" />
+                    <input type="hidden" name="ruleOrder" value="0" />
+                    <label class="tiny" for="effect-0">Then</label>
+                    <select class="select" id="effect-0" name="ruleEffect" style="width:auto;">
+                        @foreach (var effect in new[] { "Allow", "Deny", "RequireApproval", "RequireMfa" }) { <option value="@effect">@effect</option> }
+                    </select>
+                </div>
+                <div class="rule-card__body" data-conditions-for="0">
+                    <button class="btn btn--sm" type="button" data-add-condition="0">+ Add condition</button>
+                </div>
+            </article>
+        }
+    </div>
+    <div class="panel__footer row">
+        <button class="btn btn--sm btn--primary" type="submit" disabled="@immutable">Save rules</button>
+        @if (immutable) { <span class="muted small">Published and deprecated versions cannot be edited.</span> }
+    </div>
+</form>

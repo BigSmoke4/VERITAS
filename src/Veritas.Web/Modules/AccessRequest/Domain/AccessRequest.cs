@@ -39,4 +39,7 @@ public class ApprovalStep
     public Guid? DecidedByUserId { get; set; }
     public string? Decision { get; set; } // APPROVED / DENIED
     public DateTimeOffset? DecidedAtUtc { get; set; }
+
+    /// <summary>Free-text rationale captured with the decision; part of the audit record.</summary>
+    public string? Comment { get; set; }
 }

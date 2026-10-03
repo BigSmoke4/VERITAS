@@ -15,15 +15,20 @@ namespace Veritas.Web.BackgroundWorkers;
 /// </summary>
 public sealed class TemporaryAccessExpirationWorker : BackgroundService
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TemporaryAccessExpirationWorker> _logger;
 
-    public TemporaryAccessExpirationWorker(IServiceScopeFactory scopeFactory, ILogger<TemporaryAccessExpirationWorker> logger)
+    public TemporaryAccessExpirationWorker(
+        IServiceScopeFactory scopeFactory,
+        ILogger<TemporaryAccessExpirationWorker> logger,
+        Microsoft.Extensions.Options.IOptions<Veritas.Web.Shared.Application.Configuration.WorkerOptions> options)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        PollInterval = options.Value.TemporaryAccessPollInterval;
     }
+
+    private TimeSpan PollInterval { get; }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

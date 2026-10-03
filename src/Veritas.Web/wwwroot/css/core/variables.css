@@ -1,14 +1,110 @@
+/* ==========================================================================
+   VERITAS design tokens
+   Enterprise white skeuomorphic control-room language: machined light-metal
+   surfaces, recessed panels, soft inner shadows, physical controls.
+   Every visual value in the product resolves to a token defined here.
+   ========================================================================== */
+
 :root {
-  --veritas-surface: #f4f5f7;
-  --veritas-panel: #ffffff;
-  --veritas-border: #d7dbe1;
-  --veritas-text: #1c2430;
-  --veritas-muted: #6b7280;
-  --veritas-accent: #2f5d92;
-  --veritas-danger: #a3352f;
-  --veritas-ok: #2f7a4d;
-  --veritas-shadow-inset: inset 0 1px 2px rgba(0,0,0,0.06);
-  --veritas-radius: 6px;
-  --veritas-font-mono: "IBM Plex Mono", "Consolas", monospace;
-  --veritas-font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  /* --- Surfaces: light metal -------------------------------------------- */
+  --surface-app: #e8eaee;
+  --surface-raised: #fbfcfd;
+  --surface-panel: #f4f6f8;
+  --surface-recessed: #e4e7ec;
+  --surface-inset: #dfe3e9;
+  --surface-control: linear-gradient(180deg, #ffffff 0%, #eef1f4 52%, #e2e6ec 100%);
+  --surface-control-active: linear-gradient(180deg, #e6eaef 0%, #f2f5f8 100%);
+
+  /* --- Machined edges ---------------------------------------------------- */
+  --edge-hairline: rgba(16, 24, 40, 0.10);
+  --edge-strong: rgba(16, 24, 40, 0.22);
+  --edge-highlight: rgba(255, 255, 255, 0.92);
+  --bezel: 1px solid var(--edge-hairline);
+
+  /* --- Depth ------------------------------------------------------------- */
+  --shadow-panel: 0 1px 0 var(--edge-highlight) inset,
+                  0 -1px 0 rgba(16, 24, 40, 0.06) inset,
+                  0 2px 6px rgba(16, 24, 40, 0.08),
+                  0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-recess: 0 2px 5px rgba(16, 24, 40, 0.14) inset,
+                   0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-control: 0 1px 0 var(--edge-highlight) inset,
+                    0 1px 2px rgba(16, 24, 40, 0.16);
+  --shadow-control-pressed: 0 2px 4px rgba(16, 24, 40, 0.22) inset;
+  --shadow-focus: 0 0 0 3px rgba(11, 87, 208, 0.35);
+
+  /* --- Type -------------------------------------------------------------- */
+  --font-ui: "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-technical: "SFMono-Regular", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  --font-readout: "DIN Alternate", "Bahnschrift", "Segoe UI Semibold", var(--font-ui);
+
+  --text-primary: #101722;
+  --text-secondary: #46536b;
+  --text-muted: #6b7890;
+  --text-on-accent: #ffffff;
+  --text-engraved: #5c6a83;
+
+  --fs-300: 0.6875rem;   /* 11px — instrument labels */
+  --fs-400: 0.75rem;     /* 12px */
+  --fs-500: 0.8125rem;   /* 13px — body */
+  --fs-600: 0.9375rem;   /* 15px */
+  --fs-700: 1.125rem;    /* 18px */
+  --fs-800: 1.5rem;      /* 24px */
+  --fs-900: 2rem;        /* 32px — digital readouts */
+
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+
+  /* --- Status lamps ------------------------------------------------------ */
+  --status-ok: #1f8a4c;
+  --status-ok-glow: rgba(31, 138, 76, 0.55);
+  --status-warn: #b5730a;
+  --status-warn-glow: rgba(181, 115, 10, 0.55);
+  --status-alarm: #b3261e;
+  --status-alarm-glow: rgba(179, 38, 30, 0.55);
+  --status-idle: #8a94a6;
+  --status-info: #0b57d0;
+  --status-info-glow: rgba(11, 87, 208, 0.45);
+
+  /* --- Semantic ---------------------------------------------------------- */
+  --accent: #0b57d0;
+  --accent-dark: #0842a0;
+  --danger: #b3261e;
+  --warning: #b5730a;
+  --success: #1f8a4c;
+
+  /* --- Layout ------------------------------------------------------------ */
+  --sidebar-width: 15.5rem;
+  --topbar-height: 3.5rem;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  --z-topbar: 40;
+  --z-modal: 100;
+  --z-toast: 120;
+
+  --transition-fast: 90ms cubic-bezier(0.2, 0, 0.2, 1);
+  --transition-base: 160ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* Reduced motion: keep every state change instant (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

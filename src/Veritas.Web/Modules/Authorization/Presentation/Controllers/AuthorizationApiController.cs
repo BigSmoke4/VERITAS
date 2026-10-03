@@ -2,7 +2,10 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+// Both our decision service and ASP.NET Core's policy service are named
+// IAuthorizationService. Alias ours so the reference is never ambiguous.
 using Veritas.Web.Modules.Authorization.Application;
+using VeritasAuthorization = Veritas.Web.Modules.Authorization.Application.IAuthorizationService;
 using Veritas.Web.Infrastructure.Idempotency;
 using System.Text.Json;
 
@@ -31,11 +34,11 @@ public sealed record AuthorizeResponseDto(
 [EnableRateLimiting("authorization-api")]
 public sealed class AuthorizationApiController : ControllerBase
 {
-    private readonly IAuthorizationService _authorizationService;
+    private readonly VeritasAuthorization _authorizationService;
     private readonly IIdempotencyService _idempotency;
     private readonly IValidator<AuthorizeRequestDto> _validator;
 
-    public AuthorizationApiController(IAuthorizationService authorizationService, IIdempotencyService idempotency, IValidator<AuthorizeRequestDto> validator)
+    public AuthorizationApiController(VeritasAuthorization authorizationService, IIdempotencyService idempotency, IValidator<AuthorizeRequestDto> validator)
     {
         _authorizationService = authorizationService;
         _idempotency = idempotency;

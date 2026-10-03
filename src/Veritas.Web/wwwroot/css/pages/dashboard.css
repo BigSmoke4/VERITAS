@@ -1,0 +1,35 @@
+/* Security Control Center. */
+
+.control-center__masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+  background: linear-gradient(180deg, #ffffff 0%, #eef1f5 100%);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.control-center__title {
+  font-family: var(--font-readout);
+  font-size: var(--fs-700);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-engraved);
+}
+
+.trend-chart { display: flex; align-items: flex-end; gap: 3px; height: 6rem; padding-top: var(--space-2); }
+.trend-chart__bar {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0.5rem;
+}
+.trend-chart__allow { background: linear-gradient(180deg, #4bb07a, var(--status-ok)); border-radius: 1px 1px 0 0; }
+.trend-chart__deny { background: linear-gradient(180deg, #d9685f, var(--status-alarm)); border-radius: 0 0 1px 1px; }
+.trend-chart__segment { width: 100%; min-height: 1px; }

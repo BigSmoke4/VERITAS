@@ -1,0 +1,28 @@
+/* Status lamps: the small illuminated indicators used everywhere. */
+
+.status-lamp {
+  display: inline-block;
+  width: 0.625rem; height: 0.625rem;
+  border-radius: 50%;
+  background: var(--status-idle);
+  border: 1px solid rgba(16, 24, 40, 0.4);
+  box-shadow: 0 1px 1px rgba(16, 24, 40, 0.35) inset;
+  flex: 0 0 auto;
+}
+
+.status-lamp--ok { background: radial-gradient(circle at 35% 30%, #7ee2a5, var(--status-ok) 65%); box-shadow: 0 0 6px var(--status-ok-glow), 0 1px 1px rgba(0,0,0,.25) inset; }
+.status-lamp--warn { background: radial-gradient(circle at 35% 30%, #ffd894, var(--status-warn) 65%); box-shadow: 0 0 6px var(--status-warn-glow), 0 1px 1px rgba(0,0,0,.25) inset; }
+.status-lamp--alarm { background: radial-gradient(circle at 35% 30%, #ff9f97, var(--status-alarm) 65%); box-shadow: 0 0 6px var(--status-alarm-glow), 0 1px 1px rgba(0,0,0,.25) inset; }
+.status-lamp--info { background: radial-gradient(circle at 35% 30%, #a8c8ff, var(--status-info) 65%); box-shadow: 0 0 6px var(--status-info-glow), 0 1px 1px rgba(0,0,0,.25) inset; }
+.status-lamp--lg { width: 0.9375rem; height: 0.9375rem; }
+
+.status-line { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-400); }
+
+/* Blinking alarm, suppressed under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .status-lamp--alarm.status-lamp--pulse { animation: lamp-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes lamp-pulse {
+  0%, 100% { box-shadow: 0 0 4px var(--status-alarm-glow); }
+  50% { box-shadow: 0 0 12px var(--status-alarm-glow); }
+}

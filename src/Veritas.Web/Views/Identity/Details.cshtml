@@ -1,0 +1,151 @@
+@model Veritas.Web.Modules.Identity.Presentation.IdentityDetailsViewModel
+@{
+    ViewData["Title"] = Model.User.DisplayName;
+    var u = Model.User;
+}
+
+<div class="page-header">
+    <div>
+        <h1>@u.DisplayName</h1>
+        <p class="lede">@u.JobTitle @(u.Department is null ? "" : $"· {u.Department}") · @u.Email</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm" asp-action="Edit" asp-route-id="@u.Id">Edit profile</a>
+        <a class="btn btn--sm btn--ghost" asp-controller="AccessGraphPage" asp-action="Index" asp-route-mode="user" asp-route-id="@u.Id">Access graph</a>
+    </div>
+</div>
+
+<div class="lifecycle-rail" role="group" aria-label="User lifecycle">
+    @foreach (var state in new[] { "INVITED", "PENDING_VERIFICATION", "ACTIVE", "SUSPENDED", "REVOKED" })
+    {
+        <span class="lifecycle-state @(state == u.LifecycleState ? "lifecycle-state--current" : "")">@state.Replace("_", " ")</span>
+        if (state != "REVOKED") { <span class="lifecycle-arrow" aria-hidden="true">→</span> }
+    }
+</div>
+
+<div class="grid grid--split" style="margin-top:var(--space-4);">
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Profile</h2></div>
+            <div class="panel__body">
+                <dl class="readout readout--stacked">
+                    <div class="readout__row"><dt>Email</dt><dd>@u.Email</dd></div>
+                    <div class="readout__row"><dt>Location</dt><dd>@(u.Location ?? "—") @(u.Country ?? "")</dd></div>
+                    <div class="readout__row"><dt>Clearance</dt><dd>@u.Clearance</dd></div>
+                    <div class="readout__row"><dt>Risk level</dt><dd>@u.RiskLevel</dd></div>
+                    <div class="readout__row"><dt>Created (UTC)</dt><dd>@u.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</dd></div>
+                    <div class="readout__row"><dt>Last login (UTC)</dt><dd>@(u.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Effective permissions (@u.Permissions.Count)</h2></div>
+            <div class="panel__body">
+                @if (u.Permissions.Count == 0)
+                {
+                    <p class="empty-state">No role grants. This subject can only act through temporary grants.</p>
+                }
+                else
+                {
+                    <div class="role-chips">
+                        @foreach (var permission in u.Permissions)
+                        {
+                            <span class="badge badge--info mono">@permission</span>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Temporary grants (@u.TemporaryGrants.Count)</h2></div>
+            <div class="panel__body panel__body--flush table-scroll">
+                <table class="data-table">
+                    <thead><tr><th scope="col">Permission</th><th scope="col">Reason</th><th scope="col">Expires (UTC)</th><th scope="col">State</th></tr></thead>
+                    <tbody>
+                    @foreach (var grant in u.TemporaryGrants)
+                    {
+                        var active = !grant.Revoked && grant.ExpiresAtUtc > DateTimeOffset.UtcNow;
+                        <tr>
+                            <td class="mono">@grant.PermissionKey</td>
+                            <td class="small">@grant.Reason</td>
+                            <td class="audit-timestamp" data-expires-at="@grant.ExpiresAtUtc.ToString("O")">@grant.ExpiresAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td><span class="badge badge--@(active ? "ok" : grant.Revoked ? "alarm" : "idle")">@(active ? "ACTIVE" : grant.Revoked ? "REVOKED" : "EXPIRED")</span></td>
+                        </tr>
+                    }
+                    @if (u.TemporaryGrants.Count == 0)
+                    {
+                        <tr><td colspan="4"><p class="empty-state">No temporary grants have ever been issued to this subject.</p></td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Roles</h2></div>
+            <div class="panel__body">
+                <div class="role-chips" style="margin-bottom:var(--space-3);">
+                    @foreach (var role in u.Roles)
+                    {
+                        <span class="badge badge--ok">@role</span>
+                    }
+                    @if (u.Roles.Count == 0) { <span class="muted small">None assigned.</span> }
+                </div>
+
+                <form method="post" asp-action="AssignRole" asp-route-id="@u.Id" data-validate-form>
+                    <input type="hidden" name="id" value="@u.Id" />
+                    <div class="field">
+                        <label class="field__label" for="roleId">Assign role</label>
+                        <select class="select" id="roleId" name="roleId" data-validate="required,guid" required>
+                            <option value="">Select a role…</option>
+                            @foreach (var role in Model.Roles)
+                            {
+                                <option value="@role.Id">@role.Name (@role.PermissionCount permissions)</option>
+                            }
+                        </select>
+                        <p class="field__hint">Separation-of-Duties conflicts are refused here, not just reported.</p>
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="expiresInDays">Expire after (days)</label>
+                        <input class="input" type="number" min="1" id="expiresInDays" name="expiresInDays" placeholder="never" />
+                    </div>
+                    <button class="btn btn--sm btn--primary" type="submit">Assign</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Lifecycle transition</h2></div>
+            <div class="panel__body">
+                @if (Model.AllowedTransitions.Count == 0)
+                {
+                    <p class="empty-state">No further transitions are permitted from this state.</p>
+                }
+                else
+                {
+                    <form method="post" asp-action="Transition" asp-route-id="@u.Id">
+                        <input type="hidden" name="id" value="@u.Id" />
+                        <div class="field">
+                            <label class="field__label" for="targetState">Target state</label>
+                            <select class="select" id="targetState" name="targetState">
+                                @foreach (var target in Model.AllowedTransitions)
+                                {
+                                    <option value="@target">@target</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="reason">Reason</label>
+                            <input class="input" id="reason" name="reason" placeholder="Recorded in the audit trail" />
+                        </div>
+                        <button class="btn btn--sm btn--danger" type="submit">Apply transition</button>
+                    </form>
+                }
+            </div>
+        </section>
+    </div>
+</div>

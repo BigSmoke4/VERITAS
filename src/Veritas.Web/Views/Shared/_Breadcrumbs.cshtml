@@ -1,0 +1,33 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"] as string;
+    var action = ViewContext.RouteData.Values["action"] as string;
+    var crumbs = new List<(string Label, string? Url)> { ("Control Center", Url.Action("Index", "Dashboard")) };
+
+    if (!string.IsNullOrEmpty(controller) && !string.Equals(controller, "Dashboard", StringComparison.OrdinalIgnoreCase))
+    {
+        crumbs.Add((controller.Replace("Page", string.Empty), Url.Action("Index", controller)));
+        if (!string.IsNullOrEmpty(action) && !string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase))
+            crumbs.Add((action, null));
+    }
+}
+<nav aria-label="Breadcrumb" class="small muted" style="margin-bottom:var(--space-4);">
+    <ol class="row" role="list" style="gap:var(--space-2);">
+        @for (var i = 0; i < crumbs.Count; i++)
+        {
+            <li class="row" style="gap:var(--space-2);">
+                @if (crumbs[i].Url is not null && i < crumbs.Count - 1)
+                {
+                    <a href="@crumbs[i].Url">@crumbs[i].Label</a>
+                }
+                else
+                {
+                    <span aria-current="@(i == crumbs.Count - 1 ? "page" : null)">@crumbs[i].Label</span>
+                }
+                @if (i < crumbs.Count - 1)
+                {
+                    <span aria-hidden="true">/</span>
+                }
+            </li>
+        }
+    </ol>
+</nav>

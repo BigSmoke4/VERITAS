@@ -1,0 +1,71 @@
+@model Veritas.Web.Modules.RoleManagement.Presentation.RolesIndexViewModel
+@{ ViewData["Title"] = "Roles & Separation of Duties"; }
+
+<div class="page-header">
+    <div><h1>Roles &amp; Separation of Duties</h1><p class="lede">Roles bundle permissions. SoD rules are enforced at assignment time, not merely reported.</p></div>
+</div>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Roles (@Model.Roles.Count)</h2></div>
+        <div class="panel__body panel__body--flush table-scroll">
+            <table class="data-table" data-sortable>
+                <thead><tr><th scope="col" data-sort-key>Role</th><th scope="col" data-sort-key data-numeric>Permissions</th><th scope="col" data-sort-key data-numeric>Holders</th><th scope="col" data-sort-key>Type</th></tr></thead>
+                <tbody>
+                @foreach (var role in Model.Roles)
+                {
+                    <tr>
+                        <th scope="row"><a asp-action="Details" asp-route-id="@role.Id">@role.Name</a><p class="tiny">@role.Description</p></th>
+                        <td data-numeric>@role.PermissionCount</td>
+                        <td data-numeric>@role.AssignedUserCount</td>
+                        <td>@(role.IsSystemRole ? "SYSTEM" : "CUSTOM")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Create role</h2></div>
+            <div class="panel__body">
+                <form method="post" asp-action="Create" data-validate-form>
+                    <div class="field"><label class="field__label" for="name">Name</label><input class="input" id="name" name="name" required /></div>
+                    <div class="field"><label class="field__label" for="description">Description</label><input class="input" id="description" name="description" /></div>
+                    <fieldset class="fieldset">
+                        <legend>Permissions</legend>
+                        @foreach (var permission in Model.Permissions)
+                        {
+                            <label class="row small"><input type="checkbox" name="permissionIds" value="@permission.Id" /><span class="mono">@permission.Key</span></label>
+                        }
+                    </fieldset>
+                    <button class="btn btn--sm btn--primary" type="submit" style="margin-top:var(--space-3);">Create role</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">SoD conflict rules (@Model.SoDRules.Count)</h2></div>
+            <div class="panel__body">
+                <ul class="stack" role="list">
+                    @foreach (var rule in Model.SoDRules)
+                    {
+                        <li class="panel panel--recessed" style="padding:var(--space-3);">
+                            <p><span class="mono badge badge--alarm">@rule.PermissionKeyA</span> <span aria-hidden="true">⊘</span> <span class="mono badge badge--alarm">@rule.PermissionKeyB</span></p>
+                            <p class="small muted">@rule.Description</p>
+                        </li>
+                    }
+                    @if (Model.SoDRules.Count == 0) { <li><p class="empty-state">No conflict rules defined.</p></li> }
+                </ul>
+
+                <form method="post" asp-action="CreateSoDRule" data-validate-form style="margin-top:var(--space-3);">
+                    <div class="field"><label class="field__label" for="permissionKeyA">Permission A</label><input class="input mono" id="permissionKeyA" name="permissionKeyA" data-validate="permissionKey" required /></div>
+                    <div class="field"><label class="field__label" for="permissionKeyB">Permission B</label><input class="input mono" id="permissionKeyB" name="permissionKeyB" data-validate="permissionKey" required /></div>
+                    <div class="field"><label class="field__label" for="sodDescription">Why these conflict</label><input class="input" id="sodDescription" name="description" /></div>
+                    <button class="btn btn--sm" type="submit">Add conflict rule</button>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

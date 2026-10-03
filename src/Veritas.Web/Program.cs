@@ -1,172 +1,303 @@
 using System.Threading.RateLimiting;
+using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using Serilog.Context;
 using StackExchange.Redis;
 using Veritas.Web.BackgroundWorkers;
+using Veritas.Web.Controllers;
+using Veritas.Web.Infrastructure;
 using Veritas.Web.Infrastructure.Caching;
 using Veritas.Web.Infrastructure.Idempotency;
 using Veritas.Web.Modules.AccessReview.Application;
+using Veritas.Web.Modules.Administration.Application;
+using Veritas.Web.Modules.Analytics.Application;
 using Veritas.Web.Modules.ApplicationRegistry.Application;
+using Veritas.Web.Modules.Approval.Application;
 using Veritas.Web.Modules.Audit.Application;
 using Veritas.Web.Modules.Authorization.Application;
-using Veritas.Web.Modules.Approval.Application;
+using Veritas.Web.Modules.Compliance.Application;
+using Veritas.Web.Modules.Identity.Application;
 using Veritas.Web.Modules.Identity.Domain;
 using Veritas.Web.Modules.Notification.Application;
+using Veritas.Web.Modules.PermissionManagement.Application;
 using Veritas.Web.Modules.PolicyManagement.Application;
 using Veritas.Web.Modules.PrivilegedAccess.Application;
+using Veritas.Web.Modules.PrivilegedAccess.Infrastructure;
+using Veritas.Web.Modules.ResourceManagement.Application;
 using Veritas.Web.Modules.RiskManagement.Application;
 using Veritas.Web.Modules.RoleManagement.Application;
-using FluentValidation;
 using Veritas.Web.Observability;
+using Veritas.Web.Shared.Application.AccessGrants;
+using Veritas.Web.Shared.Application.Configuration;
 using Veritas.Web.Shared.Domain;
 using Veritas.Web.Shared.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---------------------------------------------------------------------------
+// Structured logging (spec section 40). CorrelationId / TenantId / UserId are
+// pushed into LogContext per request by the middleware below.
+// ---------------------------------------------------------------------------
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "Veritas")
     .WriteTo.Console());
 
-// --- Data ---
+// ---------------------------------------------------------------------------
+// Strongly-typed options (spec section 67). Validated at startup so a
+// misconfigured deployment fails fast instead of misbehaving at request time.
+// ---------------------------------------------------------------------------
+builder.Services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<RedisOptions>().BindConfiguration(RedisOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<SecurityOptions>().BindConfiguration(SecurityOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<VeritasIdentityOptions>().BindConfiguration(VeritasIdentityOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<RateLimitOptions>().BindConfiguration(RateLimitOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<AuditOptions>().BindConfiguration(AuditOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<NotificationOptions>().BindConfiguration(NotificationOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<WorkerOptions>().BindConfiguration(WorkerOptions.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
+
+var databaseOptions = builder.Configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>() ?? new DatabaseOptions();
+var redisOptions = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
+var identityOptions = builder.Configuration.GetSection(VeritasIdentityOptions.SectionName).Get<VeritasIdentityOptions>() ?? new VeritasIdentityOptions();
+var rateLimitOptions = builder.Configuration.GetSection(RateLimitOptions.SectionName).Get<RateLimitOptions>() ?? new RateLimitOptions();
+var securityOptions = builder.Configuration.GetSection(SecurityOptions.SectionName).Get<SecurityOptions>() ?? new SecurityOptions();
+
+// ---------------------------------------------------------------------------
+// Data: PostgreSQL is the system of truth (ADR-002).
+// ---------------------------------------------------------------------------
+var postgresConnection = builder.Configuration.GetConnectionString("Postgres");
+if (string.IsNullOrWhiteSpace(postgresConnection))
+    throw new InvalidOperationException(
+        "ConnectionStrings:Postgres is not configured. Set it via environment variable " +
+        "ConnectionStrings__Postgres or a secret manager; credentials are never committed.");
+
 builder.Services.AddDbContext<VeritasDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
-        ?? "Host=localhost;Database=veritas;Username=veritas;Password=veritas"));
+    options.UseNpgsql(postgresConnection, npgsql =>
+        npgsql.CommandTimeout(databaseOptions.CommandTimeoutSeconds)
+              .MaxBatchSize(64)
+              .EnableRetryOnFailure(maxRetryCount: 3)));
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
 
-// --- Redis (optional infra: app must still run if this is unreachable, see ADR-003) ---
-var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
-if (!string.IsNullOrWhiteSpace(redisConnectionString))
+// ---------------------------------------------------------------------------
+// Redis: latency infrastructure only. If it is unreachable the app keeps
+// working against PostgreSQL (ADR-003) — nothing here is correctness-critical.
+// ---------------------------------------------------------------------------
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnection))
 {
     try
     {
         var multiplexer = ConnectionMultiplexer.Connect(new ConfigurationOptions
         {
-            EndPoints = { redisConnectionString },
+            EndPoints = { redisConnection },
             AbortOnConnectFail = false,
-            ConnectTimeout = 2000
+            ConnectTimeout = redisOptions.ConnectTimeoutMs
         });
         builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
     }
     catch (Exception ex)
     {
-        Log.Warning(ex, "Could not establish initial Redis connection at startup; caching/rate limiting/idempotency will fail open until Redis is reachable.");
+        Log.Warning(ex, "Initial Redis connection failed; caching/idempotency/rate limiting will fail open.");
     }
 }
 
 builder.Services.AddScoped<IPolicyCache, RedisPolicyCache>();
 builder.Services.AddScoped<IIdempotencyService, RedisIdempotencyService>();
 
-// --- Identity ---
+// ---------------------------------------------------------------------------
+// Identity (spec section 7)
+// ---------------------------------------------------------------------------
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
     {
-        options.Password.RequiredLength = 12;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequireUppercase = true;
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-        options.SignIn.RequireConfirmedEmail = true;
+        options.Password.RequiredLength = identityOptions.PasswordMinLength;
+        options.Password.RequireNonAlphanumeric = identityOptions.RequireNonAlphanumeric;
+        options.Password.RequireUppercase = identityOptions.RequireUppercase;
+        options.Password.RequireLowercase = identityOptions.RequireLowercase;
+        options.Password.RequireDigit = identityOptions.RequireDigit;
+        options.Lockout.MaxFailedAccessAttempts = identityOptions.MaxFailedAccessAttempts;
+        options.Lockout.DefaultLockoutTimeSpan = identityOptions.LockoutDuration;
+        options.SignIn.RequireConfirmedEmail = identityOptions.RequireConfirmedEmail;
+        options.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<VeritasDbContext>()
     .AddClaimsPrincipalFactory<Veritas.Web.Modules.Identity.Infrastructure.VeritasClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
 
-// Re-issues the claims principal (including org_id, lifecycle_state) every 5
-// minutes against the live ApplicationUser row, rather than trusting an
-// 8-hour-old cookie. This is what makes a mid-session Suspend/Revoke or an
-// org change actually take effect promptly instead of only on next login.
-builder.Services.Configure<Microsoft.AspNetCore.Identity.SecurityStampValidatorOptions>(options =>
-{
-    options.ValidationInterval = TimeSpan.FromMinutes(5);
-});
+// Re-issues the principal (org_id, lifecycle_state) on an interval so a
+// mid-session Suspend/Revoke takes effect without waiting for re-login.
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = identityOptions.SecurityStampValidationInterval);
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Account/Login";
     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    options.Cookie.Name = "veritas.session";
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Strict;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.ExpireTimeSpan = identityOptions.SessionLifetime;
+    options.SlidingExpiration = true;
 });
 
-// --- Authorization / policy engine / risk / approvals / privileged access ---
+// ---------------------------------------------------------------------------
+// Application services. Every module registers its own Application-layer
+// interface; nothing resolves another module's DbContext or entities (spec 4).
+// ---------------------------------------------------------------------------
 builder.Services.AddSingleton<IPolicyEvaluationEngine, PolicyEvaluationEngine>();
+builder.Services.AddSingleton<VeritasMetrics>();
+
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<IRiskEvaluationService, RiskEvaluationService>();
+builder.Services.AddScoped<IRiskDashboardService, RiskDashboardService>();
+builder.Services.AddScoped<IRbacEvaluator, RbacEvaluator>();
+builder.Services.AddScoped<ITemporaryGrantReader, TemporaryGrantReader>();
+builder.Services.AddScoped<ISeparationOfDutiesEvaluator, SeparationOfDutiesEvaluator>();
+builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IResourceService, ResourceService>();
+builder.Services.AddScoped<IPolicyManagementService, PolicyManagementService>();
+builder.Services.AddScoped<IPolicySimulatorService, PolicySimulatorService>();
+builder.Services.AddScoped<IAccessRequestService, AccessRequestService>();
 builder.Services.AddScoped<IApprovalWorkflowService, ApprovalWorkflowService>();
 builder.Services.AddScoped<IPrivilegedAccessService, PrivilegedAccessService>();
-builder.Services.AddScoped<Veritas.Web.Modules.RoleManagement.Application.ISeparationOfDutiesEvaluator, Veritas.Web.Modules.RoleManagement.Application.SeparationOfDutiesEvaluator>();
-builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
-builder.Services.AddScoped<IPolicySimulatorService, PolicySimulatorService>();
-builder.Services.AddScoped<Veritas.Web.Modules.Authorization.Application.IAccessGraphQueryService, Veritas.Web.Modules.Authorization.Application.AccessGraphQueryService>();
+builder.Services.AddScoped<IIdentityUserService, IdentityUserService>();
+builder.Services.AddScoped<IUserLifecycleService, UserLifecycleService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IAccessReviewService, AccessReviewService>();
+builder.Services.AddScoped<IComplianceService, ComplianceService>();
+builder.Services.AddScoped<IControlCenterService, ControlCenterService>();
+builder.Services.AddScoped<ISystemStatusService, SystemStatusService>();
+builder.Services.AddScoped<IAccessGraphQueryService, AccessGraphQueryService>();
+
 builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<Veritas.Web.Modules.Notification.Application.INotificationTransport, Veritas.Web.Modules.Notification.Application.LoggingEmailTransport>();
-builder.Services.AddScoped<Veritas.Web.Modules.Notification.Application.INotificationTransport, Veritas.Web.Modules.Notification.Application.InAppNotificationTransport>();
-builder.Services.AddScoped<Veritas.Web.Modules.Notification.Application.INotificationTransport, Veritas.Web.Modules.Notification.Application.WebhookNotificationTransport>();
-builder.Services.AddHttpClient(nameof(Veritas.Web.Modules.Notification.Application.WebhookNotificationTransport));
+builder.Services.AddScoped<INotificationTransport, LoggingEmailTransport>();
+builder.Services.AddScoped<INotificationTransport, InAppNotificationTransport>();
+builder.Services.AddScoped<INotificationTransport, WebhookNotificationTransport>();
+builder.Services.AddHttpClient(nameof(WebhookNotificationTransport));
 
 builder.Services.AddAuthorization();
 
-// --- Background workers (fresh DI scope per tick, cancellation-aware, idempotent) ---
+// ---------------------------------------------------------------------------
+// Background workers (spec section 35). Each creates its own DI scope per tick.
+// ---------------------------------------------------------------------------
 builder.Services.AddHostedService<TemporaryAccessExpirationWorker>();
 builder.Services.AddHostedService<SecurityDetectionWorker>();
 builder.Services.AddHostedService<NotificationWorker>();
+builder.Services.AddHostedService<AccessReviewWorker>();
+builder.Services.AddHostedService<RiskEvaluationWorker>();
+builder.Services.AddHostedService<AuditProcessingWorker>();
+builder.Services.AddHostedService<CleanupWorker>();
 
-// --- Rate limiting (spec section 36): distinct policies per API surface ---
+// ---------------------------------------------------------------------------
+// Rate limiting (spec section 36) — one policy per API surface, 429 on breach.
+// ---------------------------------------------------------------------------
 builder.Services.AddRateLimiter(options =>
 {
-    options.OnRejected = (context, _) =>
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, ct) =>
     {
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        return ValueTask.CompletedTask;
+        context.HttpContext.Response.Headers.RetryAfter =
+            context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+                ? ((int)retryAfter.TotalSeconds).ToString()
+                : "1";
+
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            type = "https://tools.ietf.org/html/rfc6585#section-4",
+            title = "Too Many Requests",
+            status = StatusCodes.Status429TooManyRequests,
+            detail = "Rate limit exceeded for this endpoint. Retry after the indicated interval."
+        }, ct);
     };
 
-    options.AddFixedWindowLimiter("authorization-api", opt =>
-    {
-        opt.Window = TimeSpan.FromSeconds(1);
-        opt.PermitLimit = 50;
-        opt.QueueLimit = 20;
-        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-    });
+    options.AddPolicy("authorization-api", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromSeconds(1),
+                PermitLimit = rateLimitOptions.AuthorizationPermitsPerSecond,
+                QueueLimit = rateLimitOptions.AuthorizationQueueLimit,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
 
-    options.AddFixedWindowLimiter("login", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 0;
-    });
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"login:{httpContext.Connection.RemoteIpAddress}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = rateLimitOptions.LoginPermitsPerMinute,
+                QueueLimit = 0
+            }));
 
-    options.AddFixedWindowLimiter("admin-api", opt =>
-    {
-        opt.Window = TimeSpan.FromSeconds(1);
-        opt.PermitLimit = 20;
-        opt.QueueLimit = 5;
-    });
+    options.AddPolicy("admin-api", _ =>
+        RateLimitPartition.GetFixedWindowLimiter("admin", _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromSeconds(1),
+            PermitLimit = rateLimitOptions.AdminApiPermitsPerSecond,
+            QueueLimit = 5
+        }));
 
-    options.AddFixedWindowLimiter("access-request-api", opt =>
-    {
-        opt.Window = TimeSpan.FromSeconds(1);
-        opt.PermitLimit = 20;
-        opt.QueueLimit = 10;
-    });
+    options.AddPolicy("access-request-api", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.Name ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromSeconds(1),
+                PermitLimit = rateLimitOptions.AccessRequestPermitsPerSecond,
+                QueueLimit = 10
+            }));
+
+    options.AddPolicy("audit-api", _ =>
+        RateLimitPartition.GetFixedWindowLimiter("audit", _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromSeconds(1),
+            PermitLimit = rateLimitOptions.AuditPermitsPerSecond,
+            QueueLimit = 5
+        }));
+
+    options.AddPolicy("apikey-auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.Headers.Authorization.FirstOrDefault() ?? "anon",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromSeconds(1),
+                PermitLimit = rateLimitOptions.ApiKeyAuthPermitsPerSecond,
+                QueueLimit = 10
+            }));
 });
 
-// --- Observability: OpenTelemetry tracing + metrics (spec section 40) ---
+// ---------------------------------------------------------------------------
+// Observability: OpenTelemetry tracing + metrics (spec section 40)
+// ---------------------------------------------------------------------------
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Veritas.Web"))
     .WithTracing(tracing => tracing
@@ -180,19 +311,19 @@ builder.Services.AddOpenTelemetry()
         .AddMeter(VeritasMetrics.MeterName)
         .AddConsoleExporter());
 
-builder.Services.AddSingleton<VeritasMetrics>();
 builder.Services.AddScoped<Veritas.Web.Infrastructure.Seeding.DemoDataSeeder>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
 
-// --- FluentValidation: validators registered by scanning this assembly;
-// invoked explicitly inside each mutating controller action (see
-// AuthorizationApiController, PolicySimulatorController, etc.) rather than
-// via an auto-validation MVC filter package, to keep the validation path
-// explicit and easy to unit test.
+// FluentValidation: validators are scanned from this assembly and invoked
+// explicitly in mutating controller actions, keeping the validation path
+// visible and unit-testable.
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+    options.SuppressModelStateInvalidFilter = false);
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -201,8 +332,8 @@ builder.Services.AddSwaggerGen(c =>
         Title = "VERITAS Authorization API",
         Version = "v1",
         Description = "Zero-Trust authorization decisions, explained and reproducible. " +
-                      "Every request is evaluated against real policy/risk/RBAC data — " +
-                      "no endpoint here returns fabricated or placeholder results."
+                      "Every endpoint evaluates real policy, RBAC, risk and grant state — " +
+                      "no endpoint returns fabricated or placeholder results."
     });
 
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -211,28 +342,122 @@ builder.Services.AddSwaggerGen(c =>
         c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 
     c.TagActionsBy(api => new[] { api.ActionDescriptor.RouteValues["controller"] ?? "default" });
-    c.DocInclusionPredicate((docName, apiDesc) => true);
+
+    c.AddSecurityDefinition("cookie", new()
+    {
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Cookie,
+        Name = "veritas.session",
+        Description = "ASP.NET Core Identity session cookie issued by /Identity/Account/Login."
+    });
+    c.AddSecurityRequirement(new()
+    {
+        [new() { Reference = new() { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "cookie" } }]
+            = Array.Empty<string>()
+    });
 });
+
+// Health: /health/live is a pure liveness probe (no dependencies),
+// /health/ready proves PostgreSQL is reachable, /health aggregates.
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddCheck<DatabaseHealthCheck>("postgres", tags: new[] { "ready" });
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
+// --- Correlation IDs: generated if absent, echoed back, pushed into logs ----
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()";
-    context.Response.Headers["Content-Security-Policy"] =
-        "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'";
+    const string header = "X-Correlation-ID";
+    var correlationId = context.Request.Headers[header].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(correlationId))
+        correlationId = context.TraceIdentifier;
+
+    context.Items[HomeController.CorrelationIdItemKey] = correlationId;
+    context.Response.Headers[header] = correlationId;
+
+    using (LogContext.PushProperty("CorrelationId", correlationId))
+    using (LogContext.PushProperty("TenantId", context.User.FindFirst("org_id")?.Value))
+    using (LogContext.PushProperty("UserId", context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value))
+    {
+        await next();
+    }
+});
+
+// --- Security headers (spec section 38) -------------------------------------
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=(), usb=()";
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    headers["Cross-Origin-Resource-Policy"] = "same-origin";
+
+    // style-src keeps 'unsafe-inline' because the skeuomorphic gauges and risk
+    // bars set their extent through CSS custom properties on the element; script
+    // sources remain strictly 'self', so no page can execute injected script.
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "font-src 'self'; " +
+        "connect-src 'self'; " +
+        "form-action 'self'; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "object-src 'none'";
+
+    if (securityOptions.EnableHsts)
+    {
+        headers["Strict-Transport-Security"] =
+            $"max-age={securityOptions.HstsMaxAgeDays * 24 * 60 * 60}; includeSubDomains";
+    }
+
     await next();
+});
+
+// --- Centralized exception handling (spec section 39) -----------------------
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var feature = context.Features.Get<IExceptionHandlerFeature>();
+    var correlationId = context.Items[HomeController.CorrelationIdItemKey] as string ?? context.TraceIdentifier;
+
+    Log.Error(feature?.Error, "Unhandled exception for {Path} (correlation {CorrelationId})",
+        context.Request.Path, correlationId);
+
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+            title = "An unexpected error occurred.",
+            status = 500,
+            detail = "The request could not be completed. No diagnostic detail is exposed by design.",
+            instance = context.Request.Path.Value,
+            correlationId
+        });
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    context.Response.Redirect($"/Home/Error?correlationId={Uri.EscapeDataString(correlationId)}");
+}));
+
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
+
+app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.CacheControl = "public,max-age=3600";
+    }
 });
 
 app.UseRouting();
@@ -241,7 +466,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseSwagger();
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "VERITAS API v1"));
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "VERITAS API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.MapControllerRoute(
     name: "default",
@@ -250,35 +479,50 @@ app.MapControllerRoute(
 app.MapControllers();
 app.MapRazorPages();
 
-app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
-app.MapGet("/health/ready", async (VeritasDbContext db) =>
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
-    var canConnect = await db.Database.CanConnectAsync();
-    return canConnect ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503);
+    Predicate = _ => true
+});
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
 });
 
-// Seeds one realistic demo organization (spec section 60) — idempotent, and
-// only runs automatically in Development so it never touches a real
-// production database on startup. In other environments, call
-// DemoDataSeeder.SeedAsync explicitly (e.g. from a one-off admin endpoint or
-// a deployment job) if you want the same fixtures.
-if (app.Environment.IsDevelopment())
+// ---------------------------------------------------------------------------
+// Schema + seed.
+//
+// Production schema changes go through EF Core migrations generated by
+// scripts/generate-migrations.sh and applied by the deployment pipeline
+// (Database:AutoMigrate=true). Development may create the schema directly from
+// the current model, which keeps `docker compose up` a single command.
+// ---------------------------------------------------------------------------
+if (databaseOptions.AutoMigrate)
 {
-    // The repository intentionally does not check generated EF migrations into source.
-    // For the self-contained Development/Compose profile, create the schema directly
-    // from the current EF model before seeding. Production deployments should use
-    // generated migrations instead.
-    using var databaseScope = app.Services.CreateScope();
-    var developmentDb = databaseScope.ServiceProvider.GetRequiredService<VeritasDbContext>();
+    using var migrationScope = app.Services.CreateScope();
+    var migrationDb = migrationScope.ServiceProvider.GetRequiredService<VeritasDbContext>();
+    await migrationDb.Database.MigrateAsync();
+    Log.Information("Applied pending EF Core migrations.");
+}
+else if (app.Environment.IsDevelopment())
+{
+    using var devScope = app.Services.CreateScope();
+    var devDb = devScope.ServiceProvider.GetRequiredService<VeritasDbContext>();
     try
     {
-        await developmentDb.Database.EnsureCreatedAsync();
+        await devDb.Database.EnsureCreatedAsync();
     }
     catch (Exception ex)
     {
-        Log.Warning(ex, "Development database schema initialization failed; the application will still start.");
+        Log.Warning(ex, "Development schema initialization failed; the app will still start.");
     }
+}
 
+if (app.Environment.IsDevelopment())
+{
     using var seedScope = app.Services.CreateScope();
     var seeder = seedScope.ServiceProvider.GetRequiredService<Veritas.Web.Infrastructure.Seeding.DemoDataSeeder>();
     try
@@ -287,8 +531,7 @@ if (app.Environment.IsDevelopment())
     }
     catch (Exception ex)
     {
-        Log.Warning(ex, "Demo data seeding failed — this is non-fatal, the app will still start. " +
-                         "Common cause: PostgreSQL is not reachable yet; verify the database container and connection string.");
+        Log.Warning(ex, "Demo data seeding failed (non-fatal). Common cause: PostgreSQL not reachable yet.");
     }
 }
 

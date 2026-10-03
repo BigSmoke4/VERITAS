@@ -40,15 +40,34 @@ public sealed record MatchedRuleExplanation(
     string Effect,
     IReadOnlyList<string> ConditionsEvaluated);
 
+/// <summary>
+/// One line of the decision explanation (spec section 15). Every gate the
+/// request passed through produces exactly one check, whether it passed or
+/// failed, so a DENY reads as a list of what was verified and what was not —
+/// not a single opaque "denied".
+/// </summary>
+public sealed record DecisionCheck(
+    string Code,
+    string Description,
+    bool Passed,
+    string? Detail = null);
+
 public sealed class AuthorizationDecisionOutcome
 {
     public Guid DecisionId { get; } = Guid.NewGuid();
     public required AuthorizationDecisionResult Result { get; init; }
     public required IReadOnlyList<string> Reasons { get; init; }
+    public IReadOnlyList<DecisionCheck> Checks { get; init; } = Array.Empty<DecisionCheck>();
     public MatchedRuleExplanation? MatchedRule { get; init; }
+    public string? PolicyName { get; init; }
     public int? RiskScore { get; init; }
-    public DateTimeOffset EvaluatedAtUtc { get; } = DateTimeOffset.UtcNow;
+    public string? RiskLevel { get; init; }
+    public string? RequiredPermissionKey { get; init; }
     public DateTimeOffset? ExpiresAtUtc { get; init; }
+    public DateTimeOffset EvaluatedAtUtc { get; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Human-facing identifier used in the API response and the audit trail.</summary>
+    public string PublicDecisionId => $"DEC-{DecisionId:N}";
 }
 
 /// <summary>

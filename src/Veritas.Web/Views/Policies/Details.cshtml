@@ -1,0 +1,113 @@
+@model Veritas.Web.Modules.PolicyManagement.Presentation.PolicyDetailsViewModel
+@{
+    ViewData["Title"] = Model.Policy.Name;
+    var selected = Model.Selected;
+}
+
+<div class="page-header">
+    <div><h1>@Model.Policy.Name</h1><p class="lede">Owner: @Model.Policy.Owner · @Model.Versions.Count version(s)</p></div>
+    <div class="page-header__actions">
+        <form method="post" asp-action="CreateDraftVersion" style="display:inline;">
+            <input type="hidden" name="policyId" value="@Model.Policy.Id" />
+            <button class="btn btn--sm btn--primary" type="submit">New draft version</button>
+        </form>
+        <a class="btn btn--sm btn--ghost" asp-controller="PolicySimulatorPage" asp-action="Index">Simulate</a>
+    </div>
+</div>
+
+<div class="policy-studio">
+    <section class="panel">
+        <div class="panel__header">
+            <h2 class="panel__title">Selected version @(selected is null ? "" : $"v{selected.VersionNumber}")</h2>
+            @if (selected is not null)
+            {
+                <div class="policy-stepper" role="list" aria-label="Lifecycle">
+                    @foreach (var state in new[] { "Draft", "Review", "Approved", "Published", "Deprecated" })
+                    {
+                        <span class="policy-stepper__step @(selected.Status.ToString() == state ? "policy-stepper__step--current" : "")" role="listitem">@state</span>
+                    }
+                </div>
+            }
+        </div>
+        <div class="panel__body">
+            @if (selected is null)
+            {
+                <p class="empty-state">This policy has no versions yet.</p>
+            }
+            else
+            {
+                @foreach (var rule in selected.Rules)
+                {
+                    <article class="rule-card">
+                        <div class="rule-card__header">
+                            <span class="tiny">Priority @rule.Priority</span>
+                            <span class="effect-tag effect-tag--@rule.Effect.ToString().ToLowerInvariant()">@rule.Effect</span>
+                            <span class="spacer"></span>
+                            <span class="tiny">@rule.Conditions.Count condition(s)</span>
+                        </div>
+                        <div class="rule-card__body">
+                            <ul class="stack stack--tight" role="list">
+                                @foreach (var condition in rule.Conditions)
+                                {
+                                    <li class="small mono">
+                                        @condition.Attribute <strong>@condition.Operator</strong>
+                                        @(condition.IsValueAttributeRef ? $"⟨{condition.Value}⟩" : condition.Value)
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </article>
+                }
+                @if (selected.Rules.Count == 0) { <p class="empty-state">This version has no rules and cannot be published.</p> }
+
+                <div class="row" style="margin-top:var(--space-3);">
+                    <a class="btn btn--sm" asp-action="Edit" asp-route-versionId="@selected.Id"
+                       aria-disabled="@(selected.Status.ToString() is "Published" or "Deprecated" ? "true" : "false")">Edit rules</a>
+                    @foreach (var target in AllowedTargets(selected.Status.ToString()))
+                    {
+                        <form method="post" asp-action="Transition" style="display:inline;">
+                            <input type="hidden" name="versionId" value="@selected.Id" />
+                            <input type="hidden" name="policyId" value="@Model.Policy.Id" />
+                            <input type="hidden" name="target" value="@target" />
+                            <button class="btn btn--sm @(target == "Published" ? "btn--primary" : "btn--ghost")" type="submit">Move to @target</button>
+                        </form>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Version history</h2></div>
+        <div class="panel__body policy-studio__versions">
+            @foreach (var version in Model.Versions)
+            {
+                var classes = version.Status.ToString() switch
+                {
+                    "Published" => "version-row version-row--published",
+                    "Draft" => "version-row version-row--draft",
+                    _ => "version-row"
+                };
+                <div class="@classes">
+                    <span class="version-row__number">v@version.VersionNumber</span>
+                    <span>
+                        <a asp-action="Details" asp-route-id="@Model.Policy.Id" asp-route-versionId="@version.Id">@version.Status</a>
+                        <p class="tiny">@(version.PublishedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "not published") UTC · @version.Rules.Count rule(s)</p>
+                    </span>
+                    <a class="btn btn--sm btn--ghost" asp-controller="PolicySimulatorPage" asp-action="Index" asp-route-versionId="@version.Id">Simulate</a>
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+@functions {
+    private static IEnumerable<string> AllowedTargets(string current) => current switch
+    {
+        "Draft" => new[] { "Review", "Deprecated" },
+        "Review" => new[] { "Approved", "Draft", "Deprecated" },
+        "Approved" => new[] { "Published", "Review", "Deprecated" },
+        "Published" => new[] { "Deprecated" },
+        _ => Array.Empty<string>()
+    };
+}

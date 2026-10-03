@@ -29,8 +29,24 @@ public class ApiKey : AuditableEntity, ITenantOwned
     public Guid ServiceAccountId { get; set; }
     public string KeyPrefix { get; set; } = default!; // shown in UI for identification, e.g. "vk_live_ab12"
     public string KeyHash { get; set; } = default!;    // SHA-256 of the full secret, never the secret itself
+    /// <summary>Denormalized copy of the scopes for display; the authoritative rows are <see cref="Scopes"/>.</summary>
     public string ScopesCsv { get; set; } = string.Empty;
     public bool Revoked { get; set; }
     public DateTimeOffset? ExpiresAtUtc { get; set; }
     public DateTimeOffset? LastUsedAtUtc { get; set; }
+
+    public List<ApiKeyScope> Scopes { get; set; } = new();
+}
+
+/// <summary>
+/// One row per granted scope, so "which keys can call authorize?" is an indexed
+/// query instead of a LIKE over a CSV column (spec section 28).
+/// </summary>
+public class ApiKeyScope
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ApiKeyId { get; set; }
+    public ApiKey ApiKey { get; set; } = default!;
+    public string Scope { get; set; } = default!;
+    public DateTimeOffset GrantedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

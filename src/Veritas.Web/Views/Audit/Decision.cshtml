@@ -1,0 +1,56 @@
+@model Veritas.Web.Modules.Audit.Application.DecisionExplanationView
+@{
+    ViewData["Title"] = $"Decision {Model.PublicDecisionId}";
+}
+<div class="page-header">
+    <div>
+        <h1>Audited Decision</h1>
+        <p class="lede mono">@Model.PublicDecisionId</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm btn--ghost" asp-controller="AuthorizationPage" asp-action="Decision" asp-route-id="@Model.DecisionId">Open decision console</a>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Back to explorer</a>
+    </div>
+</div>
+
+<section class="panel" style="margin-bottom:var(--space-4);">
+    <div class="panel__header">
+        <span class="status-lamp status-lamp--@(Model.Result == "Allow" ? "ok" : Model.Result == "Deny" ? "alarm" : "warn")" aria-hidden="true"></span>
+        <h2 class="panel__title">@Model.Result</h2>
+        <span class="panel__subtitle">@Model.EvaluatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+    </div>
+    <div class="panel__body">
+        <div class="context-grid">
+            <div class="context-item"><p class="context-item__key">Subject</p><p class="context-item__value">@(Model.SubjectName ?? Model.Subject)</p></div>
+            <div class="context-item"><p class="context-item__key">Resource</p><p class="context-item__value">@Model.ResourceLabel</p></div>
+            <div class="context-item"><p class="context-item__key">Action</p><p class="context-item__value">@Model.Action</p></div>
+            <div class="context-item"><p class="context-item__key">Environment</p><p class="context-item__value">@Model.Environment</p></div>
+            <div class="context-item"><p class="context-item__key">Required permission</p><p class="context-item__value">@(Model.RequiredPermissionKey ?? "—")</p></div>
+            <div class="context-item"><p class="context-item__key">Risk</p><p class="context-item__value">@(Model.RiskScore?.ToString() ?? "—") (@(Model.RiskLevel ?? "—"))</p></div>
+            <div class="context-item"><p class="context-item__key">Policy version</p><p class="context-item__value">@(Model.PolicyName ?? "—") @(Model.PolicyVersionNumber is { } v ? $"v{v}" : "")</p></div>
+            <div class="context-item"><p class="context-item__key">Correlation</p><p class="context-item__value">@(Model.CorrelationId ?? "—")</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel__header"><h2 class="panel__title">Evaluation transcript</h2></div>
+    <div class="panel__body">
+        <ul class="check-list">
+            @foreach (var check in Model.Checks)
+            {
+                <li class="check-list__item">
+                    <span class="check-mark check-mark--@(check.Passed ? "pass" : "fail")" aria-hidden="true">@(check.Passed ? "✓" : "✗")</span>
+                    <div>
+                        <p>@check.Description</p>
+                        @if (!string.IsNullOrEmpty(check.Detail)) { <p class="check-detail">@check.Detail</p> }
+                    </div>
+                </li>
+            }
+            @if (Model.Checks.Count == 0)
+            {
+                <li><p class="empty-state">No check transcript stored for this decision.</p></li>
+            }
+        </ul>
+    </div>
+</section>

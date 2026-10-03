@@ -1,34 +1,31 @@
+@using System.Security.Claims
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@ViewData["Title"] — VERITAS</title>
-    <link rel="stylesheet" href="~/css/core/variables.css" />
-    <link rel="stylesheet" href="~/css/core/reset.css" />
-    <link rel="stylesheet" href="~/css/core/typography.css" />
-    <link rel="stylesheet" href="~/css/core/layout.css" />
-    <link rel="stylesheet" href="~/css/components/panel.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <meta name="color-scheme" content="light" />
+    <title>@(ViewData["Title"] ?? "Control Center") — VERITAS</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
     <div class="app-shell">
-        <aside class="app-sidebar">
-            <div class="brand">VERITAS</div>
-            <nav>
-                <a asp-controller="Dashboard" asp-action="Index">Control Center</a>
-                <a asp-controller="Audit" asp-action="Index">Audit Explorer</a>
-                <a asp-controller="PolicySimulatorPage" asp-action="Index">Policy Simulator</a>
-                <a asp-controller="AccessGraphPage" asp-action="Index">Access Graph</a>
-                <a asp-controller="AccessReviewsPage" asp-action="Index">Access Reviews</a>
-                <a asp-controller="PrivilegedAccessPage" asp-action="Index">Privileged Access</a>
-                <a asp-controller="ApiKeysPage" asp-action="Index">API Keys</a>
-                <a asp-controller="WebhookSubscriptionsPage" asp-action="Index">Webhooks</a>
-            </nav>
-        </aside>
-        <main class="app-main">
+        <partial name="_Sidebar" />
+
+        <partial name="_TopBar" />
+
+        <main class="app-main" id="main-content" tabindex="-1">
+            <partial name="_Breadcrumbs" />
+            <partial name="_Notifications" />
             @RenderBody()
         </main>
     </div>
+
+    <partial name="_Footer" />
+
+    <script type="module" src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

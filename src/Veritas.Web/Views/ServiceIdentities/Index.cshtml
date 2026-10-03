@@ -1,0 +1,76 @@
+@model Veritas.Web.Modules.ResourceManagement.Presentation.ServiceIdentitiesIndexViewModel
+@{ ViewData["Title"] = "Service Identities"; }
+
+<div class="page-header">
+    <div><h1>Service Identities</h1><p class="lede">Non-human principals. Secrets are stored only as SHA-256 hashes and shown exactly once.</p></div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.RevealedPlaintextKey))
+{
+    <section class="panel" style="margin-bottom:var(--space-4);border-color:var(--warning);">
+        <div class="panel__header">
+            <span class="status-lamp status-lamp--warn" aria-hidden="true"></span>
+            <h2 class="panel__title">One-time secret — @Model.RevealedKeyPrefix</h2>
+        </div>
+        <div class="panel__body">
+            <p class="small">Copy this now. Only its hash is persisted; it cannot be retrieved again.</p>
+            <p class="credential-well" id="revealed-secret" style="margin-top:var(--space-2);">@Model.RevealedPlaintextKey</p>
+            <button class="btn btn--sm" type="button" data-copy-target="revealed-secret" style="margin-top:var(--space-2);">Copy secret</button>
+        </div>
+    </section>
+}
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table">
+            <thead><tr><th scope="col">Service</th><th scope="col">Application</th><th scope="col">Owner</th><th scope="col">Status</th><th scope="col" data-numeric>Keys</th><th scope="col">Last used (UTC)</th><th scope="col">Expires (UTC)</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+            @foreach (var service in Model.Services)
+            {
+                <tr>
+                    <th scope="row">@service.Name</th>
+                    <td class="small">@service.ApplicationName</td>
+                    <td class="small">@service.Owner</td>
+                    <td><span class="badge badge--@(service.Status == "ACTIVE" ? "ok" : "idle")">@service.Status</span></td>
+                    <td data-numeric>@service.ApiKeys.Count</td>
+                    <td class="audit-timestamp">@(service.LastUsedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</td>
+                    <td class="audit-timestamp">@(service.ExpiresAtUtc?.ToString("yyyy-MM-dd") ?? "never")</td>
+                    <td class="cell-actions">
+                        <form method="post" asp-controller="ServiceIdentitiesPage" asp-action="IssueKey">
+                            <input type="hidden" name="serviceAccountId" value="@service.Id" />
+                            <input type="hidden" name="scopes" value="authorize" />
+                            <button class="btn btn--sm" type="submit">Issue key</button>
+                        </form>
+                    </td>
+                </tr>
+                @foreach (var key in service.ApiKeys)
+                {
+                    <tr>
+                        <td colspan="3" class="small" style="padding-left:2rem;">
+                            <span class="mono">@key.KeyPrefix…</span> <span class="muted">@key.Scopes</span>
+                        </td>
+                        <td><span class="badge badge--@(key.Revoked ? "alarm" : "ok")">@(key.Revoked ? "REVOKED" : "LIVE")</span></td>
+                        <td data-numeric>—</td>
+                        <td class="audit-timestamp">@(key.LastUsedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</td>
+                        <td class="audit-timestamp">@(key.ExpiresAtUtc?.ToString("yyyy-MM-dd") ?? "never")</td>
+                        <td class="cell-actions">
+                            <form method="post" asp-controller="ServiceIdentitiesPage" asp-action="RotateKey" style="display:inline;">
+                                <input type="hidden" name="apiKeyId" value="@key.Id" />
+                                <button class="btn btn--sm btn--ghost" type="submit" disabled="@key.Revoked">Rotate</button>
+                            </form>
+                            <form method="post" asp-controller="ServiceIdentitiesPage" asp-action="RevokeKey" style="display:inline;" data-confirm="Revoke this key? Clients using it will start receiving 401 immediately.">
+                                <input type="hidden" name="apiKeyId" value="@key.Id" />
+                                <button class="btn btn--sm btn--ghost" type="submit" disabled="@key.Revoked">Revoke</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            }
+            @if (Model.Services.Count == 0)
+            {
+                <tr><td colspan="8"><p class="empty-state">No service identities registered.</p></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

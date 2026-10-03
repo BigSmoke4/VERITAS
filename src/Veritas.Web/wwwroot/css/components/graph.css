@@ -1,0 +1,56 @@
+/* Access graph canvas: an etched plotting surface with a fine grid. */
+
+.graph-canvas {
+  position: relative;
+  height: 32rem;
+  background-color: var(--surface-raised);
+  background-image:
+    linear-gradient(rgba(16, 24, 40, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 24, 40, 0.05) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-recess);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.graph-canvas svg { width: 100%; height: 100%; display: block; }
+
+.graph-edge { stroke: #9aa4b4; stroke-width: 1.25; fill: none; }
+.graph-edge--highlight { stroke: var(--accent); stroke-width: 2.5; }
+
+.graph-node { cursor: pointer; }
+.graph-node__shape {
+  fill: var(--surface-panel);
+  stroke: var(--edge-strong);
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 1px rgba(16, 24, 40, 0.25));
+}
+.graph-node--user .graph-node__shape { fill: #e7f0fd; stroke: #6f9be0; }
+.graph-node--role .graph-node__shape { fill: #eaf6ee; stroke: #74b78d; }
+.graph-node--permission .graph-node__shape { fill: #fdf6e8; stroke: #d8b877; }
+.graph-node--resource .graph-node__shape { fill: #fdeeeD; stroke: #d99a95; }
+.graph-node--application .graph-node__shape { fill: #f0eefb; stroke: #9d93d8; }
+
+.graph-node__label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  fill: var(--text-primary);
+  text-anchor: middle;
+  pointer-events: none;
+}
+.graph-node--selected .graph-node__shape { stroke: var(--accent); stroke-width: 2.5; }
+
+.graph-toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(180deg, #ffffff, #eff2f6);
+  border-bottom: 1px solid var(--edge-hairline);
+}
+
+.graph-legend { display: flex; gap: var(--space-3); flex-wrap: wrap; font-size: var(--fs-300); color: var(--text-muted); padding: var(--space-2) var(--space-3); }
+.graph-legend__key { display: inline-flex; align-items: center; gap: var(--space-1); }
+.graph-legend__swatch { width: 0.75rem; height: 0.75rem; border-radius: 2px; border: 1px solid var(--edge-strong); }

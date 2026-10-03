@@ -1,0 +1,73 @@
+/* Inputs sit *into* the panel: recessed wells with an engraved label. */
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-3); }
+
+.field__label, label.field__label {
+  font-size: var(--fs-300);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  font-size: var(--fs-500);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-recess);
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.input:hover, .select:hover, .textarea:hover { border-color: rgba(16, 24, 40, 0.32); }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); outline: none; }
+
+.input[aria-invalid="true"], .input--invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.22); }
+
+.textarea { min-height: 5.5rem; resize: vertical; }
+
+.select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+                    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: calc(100% - 1.05rem) calc(50% + 1px), calc(100% - 0.7rem) calc(50% + 1px);
+  background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+}
+
+.field__hint { font-size: var(--fs-300); color: var(--text-muted); }
+.field__error { font-size: var(--fs-400); color: var(--danger); font-weight: 600; }
+
+.fieldset {
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-recessed);
+  box-shadow: var(--shadow-recess);
+}
+.fieldset legend {
+  padding: 0 var(--space-2);
+  font-size: var(--fs-300);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Filter bar used across the explorers. */
+.filters {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  align-items: end;
+  padding: var(--space-4);
+  background: var(--surface-recessed);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-recess);
+  margin-bottom: var(--space-4);
+}
+.filters__actions { display: flex; gap: var(--space-2); align-items: end; }

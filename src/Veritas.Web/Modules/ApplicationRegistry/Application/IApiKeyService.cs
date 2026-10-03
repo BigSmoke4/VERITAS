@@ -12,9 +12,18 @@ public sealed record CreatedApiKey(Guid ApiKeyId, string PlaintextSecret, string
 public interface IApiKeyService
 {
     Task<CreatedApiKey> CreateAsync(Guid serviceAccountId, IEnumerable<string> scopes, TimeSpan? ttl, CancellationToken ct = default);
+
+    /// <summary>
+    /// Rotation revokes the old key and issues a new one carrying the same
+    /// scopes. Callers pass an Idempotency-Key so a retried rotation cannot
+    /// revoke-then-reissue twice (spec section 37).
+    /// </summary>
     Task<CreatedApiKey> RotateAsync(Guid apiKeyId, CancellationToken ct = default);
     Task RevokeAsync(Guid apiKeyId, CancellationToken ct = default);
     Task<ApiKey?> AuthenticateAsync(string presentedPlaintextKey, CancellationToken ct = default);
+
+    /// <summary>True when the presented key carries the requested scope (e.g. "authorize").</summary>
+    Task<bool> HasScopeAsync(Guid apiKeyId, string scope, CancellationToken ct = default);
 }
 
 public sealed class ApiKeyService : IApiKeyService
@@ -33,6 +42,11 @@ public sealed class ApiKeyService : IApiKeyService
     public async Task<CreatedApiKey> CreateAsync(Guid serviceAccountId, IEnumerable<string> scopes, TimeSpan? ttl, CancellationToken ct = default)
     {
         var (plaintext, prefix, hash) = GenerateKey();
+        var normalizedScopes = scopes
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var key = new ApiKey
         {
@@ -40,9 +54,10 @@ public sealed class ApiKeyService : IApiKeyService
             ServiceAccountId = serviceAccountId,
             KeyPrefix = prefix,
             KeyHash = hash,
-            ScopesCsv = string.Join(',', scopes),
+            ScopesCsv = string.Join(',', normalizedScopes),
             ExpiresAtUtc = ttl.HasValue ? DateTimeOffset.UtcNow + ttl.Value : null
         };
+        key.Scopes.AddRange(normalizedScopes.Select(s => new ApiKeyScope { ApiKeyId = key.Id, Scope = s }));
 
         _db.Set<ApiKey>().Add(key);
         await _db.SaveChangesAsync(ct);
@@ -87,6 +102,10 @@ public sealed class ApiKeyService : IApiKeyService
         await _db.SaveChangesAsync(ct);
         return key;
     }
+
+    public async Task<bool> HasScopeAsync(Guid apiKeyId, string scope, CancellationToken ct = default) =>
+        await _db.Set<ApiKeyScope>()
+            .AnyAsync(s => s.ApiKeyId == apiKeyId && s.Scope == scope, ct);
 
     private static (string Plaintext, string Prefix, string Hash) GenerateKey()
     {

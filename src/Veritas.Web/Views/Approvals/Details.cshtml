@@ -1,0 +1,67 @@
+@model Veritas.Web.Modules.AccessRequest.Application.AccessRequestDetail
+@{
+    ViewData["Title"] = "Review access request";
+    var nextStep = Model.Steps.FirstOrDefault(s => s.Decision is null);
+    var open = nextStep is not null && Model.Status.ToString() is not ("Granted" or "Denied" or "Expired");
+}
+
+<div class="page-header">
+    <div><h1>Review access request</h1><p class="lede">@Model.Requester → @Model.PermissionKey on @Model.Resource for @Model.Duration</p></div>
+    <div class="page-header__actions"><a class="btn btn--sm btn--ghost" asp-action="Index">Back to queue</a></div>
+</div>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Decision</h2></div>
+        <div class="panel__body">
+            @if (!open)
+            {
+                <p class="empty-state">This request is @Model.Status and can no longer receive decisions.</p>
+            }
+            else
+            {
+                <p class="small" style="margin-bottom:var(--space-3);">Next required approver role: <strong>@nextStep!.ApproverRole</strong></p>
+                <form method="post" asp-action="Decide" data-approval-form data-validate-form>
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="field">
+                        <label class="field__label" for="approverUserId">Approver</label>
+                        <input class="input mono" id="approverUserId" name="approverUserId" data-validate="required,guid" required placeholder="approver user id" />
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="approverRole">Acting role</label>
+                        <input class="input" id="approverRole" name="approverRole" value="@nextStep.ApproverRole" required />
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="comment">Comment</label>
+                        <textarea class="textarea" id="comment" name="comment" placeholder="Recorded with the decision"></textarea>
+                    </div>
+                    <div class="row">
+                        <button class="btn btn--primary btn--sm" type="submit" name="approved" value="true">Approve</button>
+                        <button class="btn btn--danger btn--sm" type="submit" name="approved" value="false">Deny</button>
+                    </div>
+                    <p class="field__hint" style="margin-top:var(--space-2);">
+                        Approving the final step issues a real temporary grant whose expiry is enforced by the
+                        expiration worker. Concurrent approvals are rejected by optimistic concurrency, not silently merged.
+                    </p>
+                </form>
+            }
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Chain state</h2></div>
+        <div class="panel__body">
+            <ol class="timeline">
+                @foreach (var step in Model.Steps)
+                {
+                    var state = step.Decision switch { "APPROVED" => "timeline__item--done", "DENIED" => "timeline__item--denied", _ => "timeline__item--active" };
+                    <li class="timeline__item @state">
+                        <span class="timeline__marker" aria-hidden="true"></span>
+                        <p class="timeline__title">@step.ApproverRole <span class="badge badge--@(step.Decision == "APPROVED" ? "ok" : step.Decision == "DENIED" ? "alarm" : "idle")">@(step.Decision ?? "PENDING")</span></p>
+                        <p class="timeline__meta">@step.DecidedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC</p>
+                    </li>
+                }
+            </ol>
+        </div>
+    </section>
+</div>

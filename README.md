@@ -10,16 +10,38 @@ VERITAS is a .NET 9 modular monolith built around PostgreSQL, ASP.NET Core Ident
 
 ## Project status
 
-The previously identified polish gaps are now completed:
+The platform is functionally complete across all 18 bounded modules: identity and
+lifecycle, RBAC with Separation of Duties, an ABAC policy engine with versioning and a
+simulator, the `/api/v1/authorize` decision endpoint with full explanations, risk scoring,
+access requests and approval chains, just-in-time privileged access with enforced expiry,
+access reviews, service identities and API keys, compliance controls with
+security-event detection, and an append-only audit trail with an explorer UI.
 
-- Swagger/XML documentation now covers webhook **list** and **delete** operations, including usable examples and response semantics.
-- Access-review decisions have a real JSON API at `POST /api/v1/access-review/items/{itemId}/decision` with Swagger examples for Keep and Remove.
-- Webhook list responses never expose the signing secret.
-- ASP.NET Core Identity now has a branded, pre-built `/Identity/Account/Login` Razor Page instead of relying on the default Identity UI.
-- The application cookie explicitly redirects unauthenticated users to the branded login page.
-- Razor Pages are registered and mapped alongside the existing MVC/API routes.
+The operator UI is server-rendered Razor with centralized CSS and ES-module JavaScript —
+no SPA framework. See [docs/frontend.md](docs/frontend.md) for the conventions it follows.
 
-**Build note:** this source package was inspected and modified in an environment without the .NET SDK or Docker CLI installed, so the final archive could not be compiled or executed here. The package is prepared for local verification; please run the build/test commands below on a machine with .NET 9 and Docker installed.
+### What is deliberately not built
+
+Everything that is designed but not implemented is labelled **PLANNED** and listed in
+[docs/roadmap.md](docs/roadmap.md). The project rule is that nothing may be simulated: a
+risk score, an audit record, a latency figure or a benchmark number appears in the UI only
+because something real produced it. Where a measurement does not exist — the control-centre
+P95 latency is the standing example — the UI renders "no data" rather than a plausible
+placeholder.
+
+### Verification status
+
+This repository was assembled and modified in a sandbox with no .NET SDK, no NuGet access
+and no Docker CLI, so `dotnet build` and `dotnet test` could not be executed here. What
+*was* checked mechanically in that environment, and what remains to be confirmed by a real
+build, is recorded in [docs/testing.md](docs/testing.md) and in the CI workflow —
+`.github/workflows/ci.yml` runs the full build, both test suites, the EF model-drift check
+and a Docker build on every push.
+
+## Documentation
+
+Start at **[docs/README.md](docs/README.md)**. The three end-to-end scenarios that
+demonstrate the platform are in [docs/demo-scenarios.md](docs/demo-scenarios.md).
 
 ---
 

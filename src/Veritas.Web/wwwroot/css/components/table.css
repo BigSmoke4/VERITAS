@@ -1,0 +1,61 @@
+/* Precision instrument tables: hairline rules, tabular numerals, sticky heads. */
+
+.data-table {
+  font-size: var(--fs-500);
+  background: var(--surface-raised);
+}
+
+.data-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-400);
+  color: var(--text-muted);
+}
+
+.data-table th, .data-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--edge-hairline);
+  vertical-align: middle;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, #f7f9fb 0%, #eceff4 100%);
+  border-bottom: 1px solid var(--edge-strong);
+  font-size: var(--fs-300);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-engraved);
+  white-space: nowrap;
+}
+
+.data-table tbody tr:nth-child(even) { background: rgba(16, 24, 40, 0.022); }
+.data-table tbody tr:hover { background: rgba(11, 87, 208, 0.06); }
+
+.data-table td[data-numeric], .data-table th[data-numeric] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-technical);
+}
+
+.data-table .cell-actions { display: flex; gap: var(--space-1); justify-content: flex-end; }
+
+.table-scroll { overflow-x: auto; border-radius: var(--radius-md); }
+
+.empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-recessed);
+  border: 1px dashed var(--edge-strong);
+  border-radius: var(--radius-md);
+}
+
+/* Pagination control */
+.pager { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pager__info { font-size: var(--fs-400); color: var(--text-muted); font-variant-numeric: tabular-nums; }

@@ -1,0 +1,22 @@
+@page
+@{
+    ViewData["Title"] = "Access denied";
+}
+<div class="auth-page">
+    <section class="auth-card" role="alert">
+        <header class="auth-card__header">
+            <p class="auth-brand">VERITAS</p>
+            <p class="tiny">Access denied</p>
+        </header>
+        <div class="auth-card__body">
+            <p>Your account does not hold the permission required for that action.</p>
+            <p class="muted small" style="margin-top:var(--space-3);">
+                The attempt has been written to the audit trail with a correlation ID. If you believe
+                this is wrong, request the permission through Access Requests.
+            </p>
+        </div>
+        <div class="auth-card__footer">
+            <a href="/">Return to the Control Center</a>
+        </div>
+    </section>
+</div>

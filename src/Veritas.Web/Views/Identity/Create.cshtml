@@ -1,0 +1,76 @@
+@model Veritas.Web.Modules.Identity.Presentation.IdentityCreateViewModel
+@{ ViewData["Title"] = "Invite user"; }
+
+<div class="page-header">
+    <div><h1>Invite user</h1><p class="lede">New accounts start in INVITED and move to ACTIVE only after email verification.</p></div>
+</div>
+
+@if (Model.Errors.Count > 0)
+{
+    <div class="notice notice--alarm" role="alert">
+        <ul role="list" class="stack stack--tight">
+            @foreach (var error in Model.Errors) { <li>@error</li> }
+        </ul>
+    </div>
+}
+
+<form class="panel" method="post" asp-action="Create" data-validate-form style="max-width:44rem;">
+    <div class="panel__header"><h2 class="panel__title">Account details</h2></div>
+    <div class="panel__body">
+        <div class="grid grid--2">
+            <div class="field">
+                <label class="field__label" for="displayName">Display name</label>
+                <input class="input" id="displayName" name="displayName" required data-validate="required" />
+            </div>
+            <div class="field">
+                <label class="field__label" for="email">Work email</label>
+                <input class="input" id="email" name="email" type="email" required data-validate="required" />
+            </div>
+            <div class="field">
+                <label class="field__label" for="jobTitle">Job title</label>
+                <input class="input" id="jobTitle" name="jobTitle" />
+            </div>
+            <div class="field">
+                <label class="field__label" for="departmentId">Department</label>
+                <select class="select" id="departmentId" name="departmentId">
+                    <option value="">Unassigned</option>
+                    @foreach (var department in Model.Departments)
+                    {
+                        <option value="@department.Id">@department.Name</option>
+                    }
+                </select>
+                <p class="field__hint">An account with no department is flagged as orphaned by the compliance scanner.</p>
+            </div>
+            <div class="field">
+                <label class="field__label" for="clearance">Clearance</label>
+                <select class="select" id="clearance" name="clearance">
+                    @foreach (var level in new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL" })
+                    {
+                        <option value="@level" selected="@(level == "INTERNAL")">@level</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="initialPassword">Initial password</label>
+                <input class="input" id="initialPassword" name="initialPassword" type="password" required autocomplete="new-password" />
+                <p class="field__hint">Must satisfy the configured password policy (length, case, digit, symbol).</p>
+            </div>
+        </div>
+
+        <fieldset class="fieldset">
+            <legend>Initial roles</legend>
+            @foreach (var role in Model.Roles)
+            {
+                <label class="row small" style="margin-bottom:var(--space-1);">
+                    <input type="checkbox" name="roleIds" value="@role.Id" />
+                    <span><strong>@role.Name</strong> — @role.Description</span>
+                </label>
+            }
+            <p class="field__hint">Assignments that breach a Separation-of-Duties rule are refused and reported above.</p>
+        </fieldset>
+    </div>
+    <div class="panel__footer row">
+        <button class="btn btn--primary btn--sm" type="submit">Create invitation</button>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Cancel</a>
+    </div>
+</form>

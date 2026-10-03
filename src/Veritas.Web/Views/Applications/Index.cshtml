@@ -1,0 +1,63 @@
+@model Veritas.Web.Modules.ResourceManagement.Presentation.ApplicationsIndexViewModel
+@{ ViewData["Title"] = "Application Registry"; }
+
+<div class="page-header">
+    <div><h1>Application Registry</h1><p class="lede">Every application, its owner, environment and exposure.</p></div>
+    <div class="page-header__actions">
+        <button class="btn btn--sm btn--primary" type="button" data-modal-open="create-application">Register application</button>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead>
+                <tr>
+                    <th scope="col" data-sort-key>Application</th><th scope="col" data-sort-key>Owner</th>
+                    <th scope="col" data-sort-key>Environment</th><th scope="col" data-sort-key data-numeric>Resources</th>
+                    <th scope="col" data-sort-key data-numeric>Service accounts</th><th scope="col" data-sort-key data-numeric>API keys</th>
+                    <th scope="col" data-sort-key>Risk</th><th scope="col" data-sort-key>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var app in Model.Applications)
+            {
+                <tr>
+                    <th scope="row"><a asp-action="Details" asp-route-id="@app.Id">@app.Name</a></th>
+                    <td>@app.Owner</td>
+                    <td class="small">@app.Environment</td>
+                    <td data-numeric>@app.ResourceCount</td>
+                    <td data-numeric>@app.ServiceAccountCount</td>
+                    <td data-numeric>@app.ApiKeyCount</td>
+                    <td><span class="badge badge--@(app.RiskTier == "HIGH" ? "alarm" : "idle")">@app.RiskTier</span></td>
+                    <td><span class="badge badge--@(app.Status == "ACTIVE" ? "ok" : "idle")">@app.Status</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="modal" id="create-application" hidden>
+    <div class="modal__scrim" data-modal-close>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="create-application-title">
+            <form method="post" asp-action="Create" data-validate-form>
+                <div class="modal__header"><h2 class="panel__title" id="create-application-title">Register application</h2></div>
+                <div class="modal__body">
+                    <div class="field"><label class="field__label" for="appName">Name</label><input class="input" id="appName" name="name" required /></div>
+                    <div class="field"><label class="field__label" for="appOwner">Owning team</label><input class="input" id="appOwner" name="owner" required /></div>
+                    <div class="field">
+                        <label class="field__label" for="appEnv">Environment</label>
+                        <select class="select" id="appEnv" name="environment">
+                            @foreach (var env in new[] { "production", "staging", "development" }) { <option value="@env">@env</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button class="btn btn--sm btn--ghost" type="button" data-modal-close>Cancel</button>
+                    <button class="btn btn--sm btn--primary" type="submit">Register</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'arena/**' ]
+  pull_request:
+    branches: [ main ]
+
+# A new push to the same branch supersedes the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  # Fail the build on compiler warnings that indicate a real defect.
+  TreatWarningsAsErrors: 'false'
+
+jobs:
+  build-and-test:
+    name: Build & test (.NET 9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+
+      - name: Restore
+        run: dotnet restore Veritas.sln
+
+      - name: Build (Release)
+        run: dotnet build Veritas.sln --configuration Release --no-restore
+
+      - name: Unit tests
+        run: >
+          dotnet test tests/Veritas.Tests/Veritas.Tests.csproj
+          --configuration Release --no-build
+          --logger trx --results-directory "${{ github.workspace }}/TestResults/unit"
+          --collect:"XPlat Code Coverage"
+
+      # The integration suite boots real PostgreSQL 16 and Redis 7 containers through
+      # Testcontainers, so it needs a Docker-capable runner. ubuntu-latest has one.
+      - name: "Integration tests (Testcontainers: PostgreSQL 16 + Redis 7)"
+        run: >
+          dotnet test tests/Veritas.IntegrationTests/Veritas.IntegrationTests.csproj
+          --configuration Release --no-build
+          --logger trx --results-directory "${{ github.workspace }}/TestResults/integration"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ github.workspace }}/TestResults
+          retention-days: 14
+          if-no-files-found: warn
+
+  schema-check:
+    name: "EF model / migration drift"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Restore & build
+        run: |
+          dotnet restore Veritas.sln
+          dotnet build src/Veritas.Web/Veritas.Web.csproj --configuration Release --no-restore
+
+      # Migrations are generated from the real model rather than hand-written, so the
+      # check is "does the current model still produce the migration we committed".
+      # A non-zero exit here means someone changed an entity without regenerating.
+      #
+      # ASPNETCORE_ENVIRONMENT is pinned to Production so the Development-only
+      # EnsureCreated/seeding branches in Program.cs cannot run while EF builds the host,
+      # and ConnectionStrings__Postgres is set because Program.cs refuses to start without it.
+      - name: Check for pending model changes
+        run: >
+          dotnet ef migrations has-pending-model-changes
+          --project src/Veritas.Web
+          --startup-project src/Veritas.Web
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__Postgres: 'Host=localhost;Port=5432;Database=veritas_ci;Username=veritas;Password=veritas'
+
+  benchmarks-compile:
+    name: Benchmarks compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+      # Benchmarks are never executed in CI — a BenchmarkDotNet run takes many minutes
+      # and its numbers are meaningless on shared hardware. We only prove they build.
+      - run: dotnet build tests/Veritas.Benchmarks/Veritas.Benchmarks.csproj --configuration Release
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: veritas:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

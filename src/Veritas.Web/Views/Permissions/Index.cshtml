@@ -1,0 +1,57 @@
+@model Veritas.Web.Modules.PermissionManagement.Presentation.PermissionsIndexViewModel
+@{ ViewData["Title"] = "Permissions"; }
+
+<div class="page-header">
+    <div><h1>Permissions</h1><p class="lede">Every key follows <code>resource.action</code>. Holder counts come from real role grants.</p></div>
+</div>
+
+@if (Model.Errors.Count > 0)
+{
+    <div class="notice notice--alarm" role="alert"><ul role="list">@foreach (var e in Model.Errors) { <li>@e</li> }</ul></div>
+}
+
+<div class="tabs" role="tablist" aria-label="Permission prefixes" style="margin-bottom:var(--space-4);">
+    <a class="tab @(string.IsNullOrEmpty(Model.Prefix) ? "is-active" : "")" role="tab" aria-selected="@(string.IsNullOrEmpty(Model.Prefix) ? "true" : "false")" asp-action="Index">All</a>
+    @foreach (var prefix in Model.Prefixes)
+    {
+        <a class="tab @(Model.Prefix == prefix ? "is-active" : "")" role="tab" aria-selected="@(Model.Prefix == prefix ? "true" : "false")" asp-action="Index" asp-route-prefix="@prefix">@prefix</a>
+    }
+</div>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__body panel__body--flush table-scroll">
+            <table class="data-table" data-sortable>
+                <thead><tr><th scope="col" data-sort-key>Key</th><th scope="col" data-sort-key data-numeric>Roles</th><th scope="col" data-sort-key data-numeric>Holders</th><th scope="col" data-sort-key>Description</th></tr></thead>
+                <tbody>
+                @foreach (var permission in Model.Permissions)
+                {
+                    <tr>
+                        <th scope="row" class="mono">@permission.Key</th>
+                        <td data-numeric>@permission.RoleCount</td>
+                        <td data-numeric>
+                            @permission.HolderCount
+                            @if (permission.HolderCount == 0) { <span class="badge badge--warn">unused</span> }
+                        </td>
+                        <td class="small">@permission.Description</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Create permission</h2></div>
+        <div class="panel__body">
+            <form method="post" asp-action="Create" data-validate-form>
+                <div class="field">
+                    <label class="field__label" for="key">Key</label>
+                    <input class="input mono" id="key" name="key" placeholder="payment.read" data-validate="required,permissionKey" required />
+                </div>
+                <div class="field"><label class="field__label" for="description">Description</label><input class="input" id="description" name="description" /></div>
+                <button class="btn btn--sm btn--primary" type="submit">Create</button>
+            </form>
+        </div>
+    </section>
+</div>

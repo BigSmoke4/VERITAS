@@ -1,0 +1,19 @@
+@model Veritas.Web.Shared.Presentation.PagerModel
+@{
+    var totalPages = Model.PageSize == 0 ? 0 : (int)Math.Ceiling(Model.Total / (double)Model.PageSize);
+    var from = Model.Total == 0 ? 0 : ((Model.Page - 1) * Model.PageSize) + 1;
+    var to = Math.Min(Model.Total, Model.Page * Model.PageSize);
+}
+<nav class="pager" aria-label="Pagination">
+    <span class="pager__info">Showing @from&ndash;@to of @Model.Total</span>
+    <span class="spacer"></span>
+    @if (Model.Page > 1)
+    {
+        <a class="btn btn--sm" href="@Model.UrlFor(Model.Page - 1)">Previous</a>
+    }
+    <span class="pager__info">Page @Model.Page of @(totalPages == 0 ? 1 : totalPages)</span>
+    @if (Model.Page < totalPages)
+    {
+        <a class="btn btn--sm" href="@Model.UrlFor(Model.Page + 1)">Next</a>
+    }
+</nav>

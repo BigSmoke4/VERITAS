@@ -1,0 +1,48 @@
+/* Accessibility affordances. These are structural, never decorative. */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: -4rem;
+  z-index: calc(var(--z-toast) + 1);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  transition: top var(--transition-fast);
+}
+.skip-link:focus { top: var(--space-3); }
+
+/* Focus must survive the skeuomorphic treatment: an explicit ring is drawn
+   over the physical button surface, never removed. */
+.btn:focus-visible,
+.input:focus-visible,
+.select:focus-visible,
+.tab:focus-visible,
+.data-table a:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus), var(--shadow-control);
+}
+
+[aria-sort] { position: relative; }
+
+/* High-contrast mode: drop the depth effects, keep the structure. */
+@media (forced-colors: active) {
+  .panel, .btn, .input, .select, .status-lamp {
+    box-shadow: none !important;
+    background: Canvas !important;
+    border-color: CanvasText !important;
+  }
+  .readout-value { text-shadow: none; }
+}

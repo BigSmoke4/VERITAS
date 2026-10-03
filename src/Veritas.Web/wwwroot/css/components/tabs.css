@@ -1,0 +1,39 @@
+/* Tabs: a bank of physical selector keys. */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-1);
+  background: var(--surface-inset);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-recess);
+  overflow-x: auto;
+}
+
+.tab {
+  appearance: none;
+  padding: 0.375rem 0.875rem;
+  font-size: var(--fs-400);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+.tab:hover { background: rgba(255, 255, 255, 0.6); color: var(--text-primary); }
+
+.tab[aria-selected="true"], .tab.is-active {
+  color: var(--text-primary);
+  background: var(--surface-control);
+  border-color: var(--edge-hairline);
+  box-shadow: var(--shadow-control);
+}
+
+.tabpanel[hidden] { display: none; }

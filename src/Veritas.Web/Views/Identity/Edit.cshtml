@@ -1,0 +1,44 @@
+@model Veritas.Web.Modules.Identity.Application.UserDetail
+@{
+    ViewData["Title"] = $"Edit {Model.DisplayName}";
+    var departments = ViewBag.Departments as IReadOnlyList<Veritas.Web.Modules.Identity.Presentation.DepartmentOption>
+                      ?? Array.Empty<Veritas.Web.Modules.Identity.Presentation.DepartmentOption>();
+}
+
+<div class="page-header">
+    <div><h1>Edit @Model.DisplayName</h1><p class="lede">Changes are written to the audit trail with their previous values.</p></div>
+    <div class="page-header__actions"><a class="btn btn--sm btn--ghost" asp-action="Details" asp-route-id="@Model.Id">Cancel</a></div>
+</div>
+
+<div asp-validation-summary="All" class="notice notice--alarm" role="alert"></div>
+
+<form class="panel" method="post" asp-action="Edit" asp-route-id="@Model.Id" data-validate-form style="max-width:44rem;">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <div class="panel__header"><h2 class="panel__title">Profile</h2></div>
+    <div class="panel__body grid grid--2">
+        <div class="field"><label class="field__label" for="displayName">Display name</label><input class="input" id="displayName" name="displayName" value="@Model.DisplayName" required /></div>
+        <div class="field"><label class="field__label" for="jobTitle">Job title</label><input class="input" id="jobTitle" name="jobTitle" value="@Model.JobTitle" /></div>
+        <div class="field">
+            <label class="field__label" for="departmentId">Department</label>
+            <select class="select" id="departmentId" name="departmentId">
+                <option value="">Unassigned</option>
+                @foreach (var department in departments)
+                {
+                    <option value="@department.Id" selected="@(Model.Department == department.Name)">@department.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label class="field__label" for="clearance">Clearance</label>
+            <select class="select" id="clearance" name="clearance">
+                @foreach (var level in new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL" })
+                {
+                    <option value="@level" selected="@(Model.Clearance == level)">@level</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label class="field__label" for="location">Location</label><input class="input" id="location" name="location" value="@Model.Location" /></div>
+        <div class="field"><label class="field__label" for="country">Country</label><input class="input" id="country" name="country" value="@Model.Country" /></div>
+    </div>
+    <div class="panel__footer"><button class="btn btn--primary btn--sm" type="submit">Save changes</button></div>
+</form>

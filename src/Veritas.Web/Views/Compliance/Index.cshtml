@@ -1,0 +1,97 @@
+@model Veritas.Web.Modules.Compliance.Presentation.ComplianceIndexViewModel
+@{
+    ViewData["Title"] = "Compliance";
+    var status = Model.Status;
+    var page = Model.Page;
+    var pager = new Veritas.Web.Shared.Presentation.PagerModel
+    {
+        Total = Model.TotalFindings, Page = page, PageSize = 25,
+        UrlFor = p => Url.Action("Index", new { status, page = p })
+    };
+}
+
+<div class="page-header">
+    <div><h1>Compliance &amp; Security Events</h1><p class="lede">Findings are produced by scanning real rows and auto-resolve when they stop reproducing.</p></div>
+    <div class="page-header__actions">
+        <form method="post" asp-action="Scan"><button class="btn btn--sm btn--primary" type="submit">Run compliance scan</button></form>
+    </div>
+</div>
+
+<section class="panel" style="margin-bottom:var(--space-4);">
+    <div class="panel__header"><h2 class="panel__title">Controls (@Model.Controls.Count)</h2></div>
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table">
+            <thead><tr><th scope="col">Control</th><th scope="col">Type</th><th scope="col" data-numeric>Threshold</th><th scope="col">Severity</th><th scope="col">Framework</th><th scope="col">State</th></tr></thead>
+            <tbody>
+            @foreach (var control in Model.Controls)
+            {
+                <tr>
+                    <th scope="row">@control.Title</th>
+                    <td class="mono small">@control.ControlType</td>
+                    <td data-numeric>@control.Threshold</td>
+                    <td><span class="badge badge--@(control.Severity switch { "CRITICAL" or "HIGH" => "alarm", "MEDIUM" => "warn", _ => "idle" })">@control.Severity</span></td>
+                    <td class="small">@(control.Framework ?? "—")</td>
+                    <td><span class="badge badge--@(control.Enabled ? "ok" : "idle")">@(control.Enabled ? "ENABLED" : "DISABLED")</span></td>
+                </tr>
+            }
+            @if (Model.Controls.Count == 0) { <tr><td colspan="6"><p class="empty-state">No controls configured. The demo tenant seeds six.</p></td></tr> }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="grid grid--split">
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Findings (@Model.TotalFindings)</h2></div>
+        <div class="panel__body panel__body--flush table-scroll">
+            <table class="data-table">
+                <thead><tr><th scope="col">Finding</th><th scope="col">Control</th><th scope="col">Severity</th><th scope="col">Status</th><th scope="col">Last seen (UTC)</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                <tbody>
+                @foreach (var finding in Model.Findings)
+                {
+                    <tr>
+                        <th scope="row">@finding.Title<p class="tiny">@finding.Detail</p></th>
+                        <td class="mono small">@finding.ControlType</td>
+                        <td><span class="badge badge--@(finding.Severity switch { "CRITICAL" or "HIGH" => "alarm", "MEDIUM" => "warn", _ => "idle" })">@finding.Severity</span></td>
+                        <td><span class="badge badge--@(finding.Status == "OPEN" ? "alarm" : finding.Status == "ACKNOWLEDGED" ? "warn" : "ok")">@finding.Status</span></td>
+                        <td class="audit-timestamp">@finding.LastSeenAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="cell-actions">
+                            @if (finding.Status == "OPEN")
+                            {
+                                <form method="post" asp-action="Acknowledge">
+                                    <input type="hidden" name="findingId" value="@finding.Id" />
+                                    <input type="hidden" name="status" value="@status" />
+                                    <input type="hidden" name="page" value="@page" />
+                                    <button class="btn btn--sm btn--ghost" type="submit">Acknowledge</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (Model.Findings.Count == 0) { <tr><td colspan="6"><p class="empty-state">No findings. Run a scan to evaluate the controls.</p></td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="panel__footer"><partial name="_Pager" model="@pager" /></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel__header"><h2 class="panel__title">Detected security events</h2></div>
+        <div class="panel__body">
+            <ul class="stack" role="list">
+                @foreach (var securityEvent in Model.SecurityEvents)
+                {
+                    <li class="panel panel--recessed" style="padding:var(--space-3);">
+                        <p class="row">
+                            <span class="status-lamp status-lamp--@(securityEvent.Severity switch { "CRITICAL" or "HIGH" => "alarm", "MEDIUM" => "warn", _ => "idle" })" aria-hidden="true"></span>
+                            <strong>@securityEvent.Title</strong>
+                        </p>
+                        <p class="small muted">@securityEvent.Detail</p>
+                        <p class="tiny mono">@securityEvent.Detector · @securityEvent.DetectedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC · @securityEvent.Status</p>
+                    </li>
+                }
+                @if (Model.SecurityEvents.Count == 0) { <li><p class="empty-state">No security events detected yet.</p></li> }
+            </ul>
+        </div>
+    </section>
+</div>

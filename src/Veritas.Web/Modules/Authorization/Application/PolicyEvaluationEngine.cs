@@ -25,7 +25,12 @@ public sealed class PolicyEvaluationEngine : IPolicyEvaluationEngine
             return new AuthorizationDecisionOutcome
             {
                 Result = AuthorizationDecisionResult.Deny,
-                Reasons = new[] { "No published policy applies to this resource/action. Zero Trust default is DENY." }
+                Reasons = new[] { "No published policy applies to this resource/action. Zero Trust default is DENY." },
+                Checks = new[]
+                {
+                    new DecisionCheck("POLICY_LOADED", "A published policy applies to this request", Passed: false,
+                        Detail: "Zero candidate policy versions in Published state")
+                }
             };
         }
 
@@ -67,7 +72,15 @@ public sealed class PolicyEvaluationEngine : IPolicyEvaluationEngine
                 {
                     Result = result,
                     Reasons = reasons,
-                    MatchedRule = explanation
+                    MatchedRule = explanation,
+                    Checks = new[]
+                    {
+                        new DecisionCheck(
+                            "POLICY_MATCH",
+                            $"Rule {rule.Priority} of policy version {version.VersionNumber} matched",
+                            Passed: true,
+                            Detail: $"{rule.Effect} after {conditionResults.Count} condition(s) evaluated")
+                    }
                 };
             }
         }
@@ -75,7 +88,12 @@ public sealed class PolicyEvaluationEngine : IPolicyEvaluationEngine
         return new AuthorizationDecisionOutcome
         {
             Result = AuthorizationDecisionResult.Deny,
-            Reasons = new[] { "No rule's conditions fully matched across any published policy. Zero Trust default is DENY." }
+            Reasons = new[] { "No rule's conditions fully matched across any published policy. Zero Trust default is DENY." },
+            Checks = new[]
+            {
+                new DecisionCheck("POLICY_MATCH", "A published rule's conditions fully matched", Passed: false,
+                    Detail: $"{orderedRules.Count} candidate rule(s) evaluated, none matched")
+            }
         };
     }
 

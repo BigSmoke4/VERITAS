@@ -1,0 +1,21 @@
+/* Risk module. */
+
+.risk-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-5);
+  align-items: center;
+}
+@media (max-width: 40rem) { .risk-summary { grid-template-columns: 1fr; } }
+
+.signal-breakdown { list-style: none; margin: 0; padding: 0; }
+.signal-breakdown li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--edge-hairline);
+}
+.signal-breakdown li:last-child { border-bottom: 0; }
+.signal-points { font-family: var(--font-technical); font-variant-numeric: tabular-nums; font-weight: 700; }
+.signal-points--add { color: var(--warning); }

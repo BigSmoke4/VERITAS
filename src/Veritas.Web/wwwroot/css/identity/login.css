@@ -1,74 +1,172 @@
+/*
+ * Authentication screens.
+ *
+ * The login page (Areas/Identity/Pages/Account/Login.cshtml) is marked up with
+ * the `identity-*` classes; the access-denied page uses the older `auth-*`
+ * names. Both are styled here against the same core tokens so neither can
+ * drift from the control-room look.
+ */
+
+.auth-page,
 .identity-shell {
-    min-height: calc(100vh - 48px);
-    display: grid;
-    place-items: center;
-    padding: 48px 24px;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.9), transparent 45%),
+    linear-gradient(160deg, #e9ecf1 0%, #d9dee6 100%);
 }
 
+.auth-card,
 .identity-card {
-    width: min(440px, 100%);
-    background: var(--veritas-panel);
-    border: 1px solid var(--veritas-border);
-    border-radius: 10px;
-    padding: 36px;
-    box-shadow: 0 18px 48px rgba(28, 36, 48, 0.10);
+  width: min(26rem, 100%);
+  background: var(--surface-panel);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(16, 24, 40, 0.28), var(--shadow-panel);
+  overflow: hidden;
+  padding: var(--space-5);
+  text-align: center;
 }
+
+.auth-card__header {
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  background: linear-gradient(180deg, #ffffff, #eef1f5);
+  border-bottom: 1px solid var(--edge-hairline);
+  text-align: center;
+}
+
+.auth-brand {
+  font-family: var(--font-readout);
+  font-size: var(--fs-800);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  color: var(--text-engraved);
+  text-shadow: 0 1px 0 var(--edge-highlight);
+}
+
+.auth-card__body { padding: var(--space-5); }
+.auth-card__footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--edge-hairline);
+  background: var(--surface-recessed);
+}
+
+/* --- Login page -------------------------------------------------------- */
 
 .identity-mark {
-    width: 42px;
-    height: 42px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: var(--veritas-accent);
-    color: #fff;
-    font-weight: 800;
-    margin-bottom: 18px;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto var(--space-3);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--edge-strong);
+  background: linear-gradient(180deg, #ffffff 0%, #dfe4ec 100%);
+  box-shadow: inset 0 1px 0 var(--edge-highlight), var(--shadow-recess);
+  font-family: var(--font-readout);
+  font-size: var(--fs-700);
+  font-weight: 700;
+  color: var(--accent-dark);
 }
 
 .identity-eyebrow {
-    margin: 0 0 8px;
-    color: var(--veritas-muted);
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    font-weight: 700;
+  font-family: var(--font-technical);
+  font-size: var(--fs-300);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-2);
 }
 
-.identity-card h1 { margin: 0; }
-
-.identity-subtitle,
-.identity-footer { color: var(--veritas-muted); }
-
-.identity-form { margin-top: 28px; }
-
-.identity-field { margin-bottom: 18px; }
-.identity-field label { display: block; margin-bottom: 7px; font-weight: 600; }
-.identity-field input[type="email"],
-.identity-field input[type="password"] {
-    width: 100%;
-    box-sizing: border-box;
-    border: 1px solid var(--veritas-border);
-    border-radius: var(--veritas-radius);
-    padding: 11px 12px;
-    background: var(--veritas-panel);
-    color: var(--veritas-text);
+.identity-card h1 {
+  font-family: var(--font-readout);
+  font-size: var(--fs-800);
+  margin: 0 0 var(--space-2);
 }
-.identity-field input:focus { outline: 2px solid var(--veritas-accent); outline-offset: 1px; }
-.identity-field span { color: var(--veritas-danger); font-size: 13px; }
 
-.identity-check { display: flex; gap: 8px; align-items: center; margin: 4px 0 20px; }
+.identity-subtitle {
+  font-size: var(--fs-400);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+}
+
+.identity-form { display: grid; gap: var(--space-3); text-align: left; }
+
+.identity-field { display: grid; gap: var(--space-1); }
+
+.identity-field label {
+  font-family: var(--font-technical);
+  font-size: var(--fs-300);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.identity-field input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-control);
+  box-shadow: var(--shadow-recess);
+  font-family: var(--font-ui);
+  font-size: var(--fs-500);
+  color: var(--text-primary);
+}
+
+.identity-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+  background: var(--surface-control-active);
+}
+
+.identity-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-400);
+  color: var(--text-secondary);
+}
+
+.identity-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--edge-strong));
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: #fdf1f1;
+  padding: var(--space-3);
+  font-size: var(--fs-400);
+  color: color-mix(in srgb, var(--danger) 75%, var(--text-primary));
+}
+
+.identity-error:empty { display: none; }
 
 .identity-submit {
-    width: 100%;
-    border: 0;
-    border-radius: var(--veritas-radius);
-    padding: 12px 16px;
-    background: var(--veritas-accent);
-    color: #fff;
-    font-weight: 700;
-    cursor: pointer;
+  width: 100%;
+  padding: 0.5625rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent-dark) 55%, var(--edge-strong));
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #4a86ec 0%, #1f6ad8 55%, #1259bd 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--shadow-control);
+  color: var(--text-on-accent);
+  font-family: var(--font-ui);
+  font-size: var(--fs-500);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
-.identity-submit:hover { filter: brightness(0.95); }
-.identity-error { color: var(--veritas-danger); margin-bottom: 14px; }
-.identity-footer { margin: 24px 0 0; font-size: 12px; line-height: 1.5; }
+.identity-submit:hover { background: linear-gradient(180deg, #3d7de8 0%, #1261da 55%, #0b52c2 100%); }
+.identity-submit:active { box-shadow: var(--shadow-control-pressed); }
+
+.identity-footer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--edge-hairline);
+  font-family: var(--font-technical);
+  font-size: var(--fs-300);
+  color: var(--text-muted);
+}

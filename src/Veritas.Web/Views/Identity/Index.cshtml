@@ -1,0 +1,89 @@
+@model Veritas.Web.Modules.Identity.Presentation.IdentityIndexViewModel
+@{
+    ViewData["Title"] = "Users";
+    var term = Model.Term;
+    var state = Model.State;
+    var pageSize = Model.PageSize;
+    var pager = new Veritas.Web.Shared.Presentation.PagerModel
+    {
+        Total = Model.Total, Page = Model.Page, PageSize = pageSize,
+        UrlFor = page => Url.Action("Index", new { term, state, page, pageSize })
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Identity Directory</h1>
+        <p class="lede">@Model.Total account(s) in this tenant. Lifecycle transitions are enforced and audited.</p>
+    </div>
+    <div class="page-header__actions">
+        <a class="btn btn--primary btn--sm" asp-action="Create">Invite user</a>
+    </div>
+</div>
+
+<form class="filters" method="get" asp-action="Index" data-filter-form>
+    <input type="hidden" name="pageSize" value="@pageSize" />
+    <div class="field">
+        <label class="field__label" for="term">Search</label>
+        <input class="input" id="term" name="term" value="@term" placeholder="Name or email" />
+    </div>
+    <div class="field">
+        <label class="field__label" for="state">Lifecycle</label>
+        <select class="select" id="state" name="state" data-autosubmit>
+            <option value="">All states</option>
+            @foreach (var option in new[] { "INVITED", "PENDING_VERIFICATION", "ACTIVE", "SUSPENDED", "REVOKED" })
+            {
+                <option value="@option" selected="@(state == option)">@option</option>
+            }
+        </select>
+    </div>
+    <div class="filters__actions">
+        <button class="btn btn--sm btn--primary" type="submit">Search</button>
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Reset</a>
+    </div>
+</form>
+
+<section class="panel">
+    <div class="panel__body panel__body--flush table-scroll">
+        <table class="data-table" data-sortable>
+            <thead>
+                <tr>
+                    <th scope="col" data-sort-key>Name</th>
+                    <th scope="col" data-sort-key>Email</th>
+                    <th scope="col" data-sort-key>Lifecycle</th>
+                    <th scope="col" data-sort-key>Clearance</th>
+                    <th scope="col" data-sort-key>Risk</th>
+                    <th scope="col" data-sort-key>Department</th>
+                    <th scope="col" data-sort-key data-numeric>Roles</th>
+                    <th scope="col" data-sort-key>Last login (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var user in Model.Users)
+            {
+                var tone = user.LifecycleState switch
+                {
+                    "ACTIVE" => "ok",
+                    "SUSPENDED" or "REVOKED" => "alarm",
+                    _ => "warn"
+                };
+                <tr>
+                    <th scope="row"><a asp-action="Details" asp-route-id="@user.Id">@user.DisplayName</a></th>
+                    <td class="small">@user.Email</td>
+                    <td><span class="badge badge--@tone">@user.LifecycleState</span></td>
+                    <td class="small">@user.Clearance</td>
+                    <td><span class="badge badge--@(user.RiskLevel is "HIGH" or "CRITICAL" ? "alarm" : user.RiskLevel == "MEDIUM" ? "warn" : "ok")">@user.RiskLevel</span></td>
+                    <td class="small">@(user.Department ?? "—")</td>
+                    <td data-numeric>@user.RoleCount</td>
+                    <td class="audit-timestamp">@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")</td>
+                </tr>
+            }
+            @if (Model.Users.Count == 0)
+            {
+                <tr><td colspan="8"><p class="empty-state">No accounts match this filter.</p></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="panel__footer"><partial name="_Pager" model="@pager" /></div>
+</section>

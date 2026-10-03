@@ -1,0 +1,82 @@
+@model Veritas.Web.Modules.AccessRequest.Application.AccessRequestDetail
+@{ ViewData["Title"] = $"Access request {Model.Id:N}"; }
+
+<div class="page-header">
+    <div><h1>Access request</h1><p class="lede mono">@Model.Id</p></div>
+    <div class="page-header__actions">
+        <a class="btn btn--sm btn--ghost" asp-action="Index">Back</a>
+        <a class="btn btn--sm" asp-controller="ApprovalsPage" asp-action="Details" asp-route-id="@Model.Id">Open in approvals</a>
+    </div>
+</div>
+
+<section class="request-summary" style="margin-bottom:var(--space-4);">
+    <div class="request-summary__item"><p class="request-summary__label">Requester</p><p class="request-summary__value">@Model.Requester</p></div>
+    <div class="request-summary__item"><p class="request-summary__label">Resource</p><p class="request-summary__value">@Model.Resource</p></div>
+    <div class="request-summary__item"><p class="request-summary__label">Permission</p><p class="request-summary__value mono">@Model.PermissionKey</p></div>
+    <div class="request-summary__item"><p class="request-summary__label">Duration</p><p class="request-summary__value">@Model.Duration</p></div>
+    <div class="request-summary__item"><p class="request-summary__label">Status</p><p class="request-summary__value"><span class="badge badge--lg badge--@(Model.Status.ToString() == "Granted" ? "ok" : Model.Status.ToString() is "Denied" or "Expired" ? "alarm" : "warn")">@Model.Status</span></p></div>
+    <div class="request-summary__item"><p class="request-summary__label">Risk at request</p><p class="request-summary__value">@(Model.Risk?.TotalScore.ToString() ?? "—") / 100</p></div>
+</section>
+
+<div class="grid grid--split">
+    <div class="stack">
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Business justification</h2></div>
+            <div class="panel__body"><p class="justification">@Model.BusinessJustification</p></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Approval chain</h2></div>
+            <div class="panel__body">
+                <ol class="timeline">
+                    <li class="timeline__item timeline__item--done">
+                        <span class="timeline__marker" aria-hidden="true"></span>
+                        <p class="timeline__title">Requested</p>
+                        <p class="timeline__meta">@Model.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC · @Model.Requester</p>
+                    </li>
+                    @foreach (var step in Model.Steps)
+                    {
+                        var state = step.Decision switch { "APPROVED" => "timeline__item--done", "DENIED" => "timeline__item--denied", _ => "timeline__item--active" };
+                        <li class="timeline__item @state">
+                            <span class="timeline__marker" aria-hidden="true"></span>
+                            <p class="timeline__title">@step.ApproverRole <span class="badge badge--@(step.Decision == "APPROVED" ? "ok" : step.Decision == "DENIED" ? "alarm" : "idle")">@(step.Decision ?? "PENDING")</span></p>
+                            <p class="timeline__meta">Step @step.Order @(step.DecidedAtUtc?.ToString("· yyyy-MM-dd HH:mm UTC") ?? "")</p>
+                            @if (!string.IsNullOrEmpty(step.Comment)) { <p class="small">“@step.Comment”</p> }
+                        </li>
+                    }
+                    <li class="timeline__item @(Model.Status.ToString() == "Granted" ? "timeline__item--done" : "")">
+                        <span class="timeline__marker" aria-hidden="true"></span>
+                        <p class="timeline__title">Granted</p>
+                        <p class="timeline__meta">
+                            @if (Model.GrantedAtUtc is { } granted)
+                            {
+                                @: @granted.ToString("yyyy-MM-dd HH:mm") UTC — expires @Model.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC
+                            }
+                            else { @: Not yet granted }
+                        </p>
+                    </li>
+                </ol>
+            </div>
+        </section>
+    </div>
+
+    @if (Model.Risk is { } risk)
+    {
+        <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">Risk evaluation</h2></div>
+            <div class="panel__body">
+                <div class="row" style="margin-bottom:var(--space-3);">
+                    <span class="readout-value">@risk.TotalScore</span><span class="readout-unit">/ 100</span>
+                    <span class="badge badge--lg badge--@(risk.Level switch { "CRITICAL" or "HIGH" => "alarm", "MEDIUM" => "warn", _ => "ok" })">@risk.Level</span>
+                </div>
+                <ul class="signal-breakdown">
+                    @foreach (var signal in risk.Breakdown)
+                    {
+                        <li><span>@signal.Signal</span><span class="signal-points signal-points--add">+@signal.Points</span></li>
+                    }
+                    @if (risk.Breakdown.Count == 0) { <li><span class="muted">No risk signals fired.</span><span>0</span></li> }
+                </ul>
+            </div>
+        </section>
+    }
+</div>

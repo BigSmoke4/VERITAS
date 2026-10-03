@@ -1,0 +1,71 @@
+/* Gauges and bars: physical meters with a machined bezel. */
+
+.gauge {
+  --gauge-fill: var(--status-ok);
+  --gauge-value: 0;
+  position: relative;
+  height: 0.875rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--edge-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow-recess);
+  overflow: hidden;
+}
+
+.gauge__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--gauge-value) * 1%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.55), transparent 60%), var(--gauge-fill);
+  border-radius: 999px;
+  transition: width var(--transition-base);
+}
+
+.gauge--warn { --gauge-fill: var(--status-warn); }
+.gauge--alarm { --gauge-fill: var(--status-alarm); }
+.gauge--info { --gauge-fill: var(--status-info); }
+
+.gauge-row { display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(6rem, 3fr) auto; gap: var(--space-3); align-items: center; }
+.gauge-row__label { font-size: var(--fs-400); color: var(--text-secondary); }
+.gauge-row__value { font-variant-numeric: tabular-nums; font-family: var(--font-technical); font-size: var(--fs-400); }
+
+/* Circular risk dial */
+.dial {
+  --dial-value: 0;
+  --dial-color: var(--status-ok);
+  position: relative;
+  width: 8.5rem; height: 8.5rem;
+  border-radius: 50%;
+  background:
+    conic-gradient(var(--dial-color) calc(var(--dial-value) * 1%), var(--surface-inset) 0);
+  border: 1px solid var(--edge-strong);
+  box-shadow: var(--shadow-panel);
+  display: grid;
+  place-items: center;
+}
+.dial::after {
+  content: "";
+  position: absolute;
+  inset: 0.875rem;
+  border-radius: 50%;
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-recess);
+}
+.dial__readout { position: relative; z-index: 1; text-align: center; }
+
+/* 3x3 risk matrix */
+.matrix { display: grid; grid-template-columns: 5rem repeat(3, 1fr); gap: 2px; }
+.matrix__axis { font-size: var(--fs-300); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); display: grid; place-items: center; }
+.matrix__cell {
+  min-height: 3.5rem;
+  display: grid;
+  place-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--edge-hairline);
+  box-shadow: var(--shadow-recess);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.matrix__cell[data-heat="1"] { background: #f4f9f5; }
+.matrix__cell[data-heat="2"] { background: #fdf7ec; }
+.matrix__cell[data-heat="3"] { background: #fdf1f0; }

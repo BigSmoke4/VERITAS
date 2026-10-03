@@ -1,0 +1,29 @@
+@model Veritas.Web.Modules.RoleManagement.Application.RoleDetail
+@{
+    ViewData["Title"] = Model.Name;
+    var allPermissions = ViewBag.AllPermissions as IReadOnlyList<Veritas.Web.Modules.PermissionManagement.Application.PermissionSummary>
+                         ?? Array.Empty<Veritas.Web.Modules.PermissionManagement.Application.PermissionSummary>();
+    var held = Model.Permissions.Select(p => p.Id).ToHashSet();
+}
+
+<div class="page-header">
+    <div><h1>@Model.Name</h1><p class="lede">@Model.Description</p></div>
+    <div class="page-header__actions"><a class="btn btn--sm btn--ghost" asp-action="Index">Back to roles</a></div>
+</div>
+
+<form class="panel" method="post" asp-action="SetPermissions" asp-route-id="@Model.Id">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <div class="panel__header"><h2 class="panel__title">Permissions (@Model.Permissions.Count)</h2><span class="panel__subtitle">@Model.AssignedUserIds.Count holder(s)</span></div>
+    <div class="panel__body">
+        <div class="grid grid--3">
+            @foreach (var permission in allPermissions)
+            {
+                <label class="row small">
+                    <input type="checkbox" name="permissionIds" value="@permission.Id" checked="@held.Contains(permission.Id)" />
+                    <span class="mono">@permission.Key</span>
+                </label>
+            }
+        </div>
+    </div>
+    <div class="panel__footer"><button class="btn btn--sm btn--primary" type="submit">Save permission set</button></div>
+</form>

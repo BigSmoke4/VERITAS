@@ -1,0 +1,29 @@
+@model Veritas.Web.Controllers.ErrorViewModel
+@{
+    ViewData["Title"] = "Something went wrong";
+    Layout = "_Layout";
+}
+
+<section class="panel panel--recessed error-panel" role="alert">
+    <div class="panel__header">
+        <span class="status-lamp status-lamp--alarm" aria-hidden="true"></span>
+        <h1 class="panel__title">Request could not be completed</h1>
+    </div>
+    <div class="panel__body">
+        <p class="lede">
+            VERITAS rejected this request internally. No data was partially committed as a
+            result of this failure.
+        </p>
+        <dl class="readout readout--stacked">
+            <div class="readout__row">
+                <dt>Correlation ID</dt>
+                <dd><code class="mono">@Model.RequestId</code></dd>
+            </div>
+        </dl>
+        <p class="muted">
+            Give this correlation ID to the platform team — it is the key that links this
+            page to the structured log entry containing the full diagnostic detail.
+        </p>
+        <a class="btn btn--primary" asp-controller="Dashboard" asp-action="Index">Return to Control Center</a>
+    </div>
+</section>

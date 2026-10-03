@@ -1,0 +1,21 @@
+/* Policy Studio page composition. */
+
+.policy-studio { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@media (max-width: 68rem) { .policy-studio { grid-template-columns: 1fr; } }
+
+.policy-studio__versions { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.version-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-panel);
+}
+.version-row--published { border-color: #9fd0b3; background: linear-gradient(180deg, #ffffff, #f1faf4); }
+.version-row--draft { border-style: dashed; }
+.version-row__number { font-family: var(--font-readout); font-size: var(--fs-700); font-variant-numeric: tabular-nums; }

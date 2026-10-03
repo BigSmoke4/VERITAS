@@ -1,0 +1,22 @@
+/* Privileged / JIT access. */
+
+.countdown {
+  font-family: var(--font-readout);
+  font-size: var(--fs-700);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+.countdown--expiring { color: var(--warning); }
+.countdown--expired { color: var(--danger); }
+
+.grant-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-panel);
+}

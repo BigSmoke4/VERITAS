@@ -1,0 +1,45 @@
+@{
+    string Current(string controller) =>
+        string.Equals(ViewContext.RouteData.Values["controller"] as string, controller, StringComparison.OrdinalIgnoreCase)
+            ? "is-active" : string.Empty;
+}
+<aside class="app-sidebar" aria-label="Primary navigation">
+    <div class="panel__header" style="border-bottom:1px solid var(--edge-strong);">
+        <span class="status-lamp status-lamp--ok" aria-hidden="true"></span>
+        <span class="auth-brand" style="font-size:var(--fs-700);letter-spacing:.22em;">VERITAS</span>
+    </div>
+
+    <nav class="stack stack--tight" style="padding:var(--space-3);" aria-label="Modules">
+        <span class="tiny">Operations</span>
+        <a class="tab @Current("Dashboard")" asp-controller="Dashboard" asp-action="Index">Control Center</a>
+        <a class="tab @Current("AuthorizationPage")" asp-controller="AuthorizationPage" asp-action="Index">Decisions</a>
+        <a class="tab @Current("RiskPage")" asp-controller="RiskPage" asp-action="Index">Risk</a>
+        <a class="tab @Current("Audit")" asp-controller="Audit" asp-action="Index">Audit Explorer</a>
+
+        <span class="tiny" style="margin-top:var(--space-3);">Access</span>
+        <a class="tab @Current("AccessRequestsPage")" asp-controller="AccessRequestsPage" asp-action="Index">Access Requests</a>
+        <a class="tab @Current("ApprovalsPage")" asp-controller="ApprovalsPage" asp-action="Index">Approvals</a>
+        <a class="tab @Current("PrivilegedAccessPage")" asp-controller="PrivilegedAccessPage" asp-action="Index">Privileged Access</a>
+        <a class="tab @Current("AccessReviewsPage")" asp-controller="AccessReviewsPage" asp-action="Index">Access Reviews</a>
+        <a class="tab @Current("AccessGraphPage")" asp-controller="AccessGraphPage" asp-action="Index">Access Graph</a>
+
+        <span class="tiny" style="margin-top:var(--space-3);">Governance</span>
+        <a class="tab @Current("PoliciesPage")" asp-controller="PoliciesPage" asp-action="Index">Policy Studio</a>
+        <a class="tab @Current("PolicySimulatorPage")" asp-controller="PolicySimulatorPage" asp-action="Index">Policy Simulator</a>
+        <a class="tab @Current("CompliancePage")" asp-controller="CompliancePage" asp-action="Index">Compliance</a>
+
+        <span class="tiny" style="margin-top:var(--space-3);">Directory</span>
+        <a class="tab @Current("IdentityPage")" asp-controller="IdentityPage" asp-action="Index">Users</a>
+        <a class="tab @Current("RolesPage")" asp-controller="RolesPage" asp-action="Index">Roles &amp; SoD</a>
+        <a class="tab @Current("PermissionsPage")" asp-controller="PermissionsPage" asp-action="Index">Permissions</a>
+        <a class="tab @Current("ApplicationsPage")" asp-controller="ApplicationsPage" asp-action="Index">Applications</a>
+        <a class="tab @Current("ResourcesPage")" asp-controller="ResourcesPage" asp-action="Index">Resources</a>
+        <a class="tab @Current("ServiceIdentitiesPage")" asp-controller="ServiceIdentitiesPage" asp-action="Index">Service Identities</a>
+        <a class="tab @Current("ApiKeysPage")" asp-controller="ApiKeysPage" asp-action="Index">API Keys</a>
+
+        <span class="tiny" style="margin-top:var(--space-3);">Platform</span>
+        <a class="tab @Current("AdministrationPage")" asp-controller="AdministrationPage" asp-action="Index">Administration</a>
+        <a class="tab @Current("WebhookSubscriptionsPage")" asp-controller="WebhookSubscriptionsPage" asp-action="Index">Webhooks</a>
+        <a class="tab" href="/swagger" target="_blank" rel="noopener">API Reference</a>
+    </nav>
+</aside>

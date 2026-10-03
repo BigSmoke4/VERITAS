@@ -1,0 +1,31 @@
+@using System.Security.Claims
+@{
+    var displayName = User.FindFirst("display_name")?.Value ?? User.Identity?.Name ?? "Unauthenticated";
+    var lifecycle = User.FindFirst("lifecycle_state")?.Value;
+    var orgId = User.FindFirst("org_id")?.Value;
+}
+<header class="app-topbar">
+    <div>
+        <p class="tiny" style="margin:0;">Enterprise Identity &amp; Zero-Trust Authorization</p>
+        <p class="h3" style="margin:0;">@ViewData["Title"]</p>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="row" role="status" aria-label="Session state">
+        <span class="status-lamp @(lifecycle == "ACTIVE" ? "status-lamp--ok" : "status-lamp--warn")" aria-hidden="true"></span>
+        <span class="small"><strong>@displayName</strong></span>
+        @if (!string.IsNullOrEmpty(lifecycle))
+        {
+            <span class="badge badge--@(lifecycle == "ACTIVE" ? "ok" : "warn")">@lifecycle</span>
+        }
+        @if (!string.IsNullOrEmpty(orgId))
+        {
+            <span class="tiny mono" title="Tenant identifier">@orgId</span>
+        }
+    </div>
+
+    <form method="post" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="/" class="row">
+        <button type="submit" class="btn btn--sm btn--ghost">Sign out</button>
+    </form>
+</header>

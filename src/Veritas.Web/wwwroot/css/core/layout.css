@@ -1,15 +1,101 @@
-.app-shell { display: flex; min-height: 100vh; }
-.app-sidebar {
-  width: 220px;
-  background: var(--veritas-panel);
-  border-right: 1px solid var(--veritas-border);
-  padding: 16px;
+/* Application shell: fixed instrument sidebar + machined top bar + content deck. */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+  min-height: 100vh;
 }
-.app-sidebar .brand { font-weight: 700; letter-spacing: 0.08em; margin-bottom: 24px; }
-.app-sidebar nav { display: flex; flex-direction: column; gap: 8px; }
-.app-sidebar nav a { color: var(--veritas-text); text-decoration: none; padding: 8px; border-radius: var(--veritas-radius); }
-.app-sidebar nav a:hover { background: var(--veritas-surface); }
-.app-main { flex: 1; padding: 24px; }
-.panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.filter-bar { margin-bottom: 12px; display: flex; gap: 8px; }
-.pager { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+
+.app-sidebar {
+  grid-area: sidebar;
+  background: linear-gradient(180deg, #f7f8fa 0%, #eceff3 100%);
+  border-right: 1px solid var(--edge-strong);
+  box-shadow: 1px 0 0 var(--edge-highlight) inset;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.app-topbar {
+  grid-area: topbar;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  background: linear-gradient(180deg, #ffffff 0%, #eceff4 100%);
+  border-bottom: 1px solid var(--edge-strong);
+  box-shadow: 0 1px 0 var(--edge-highlight) inset, 0 2px 6px rgba(16, 24, 40, 0.07);
+}
+
+.app-main {
+  grid-area: main;
+  padding: var(--space-5);
+  max-width: 100rem;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.page-header__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.section { margin-bottom: var(--space-6); }
+.section__title { margin-bottom: var(--space-3); }
+
+/* Grids -------------------------------------------------------------------- */
+.grid { display: grid; gap: var(--space-4); }
+.grid--readouts { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.grid--2 { grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
+.grid--3 { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+.grid--split { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+
+@media (max-width: 60rem) {
+  .grid--split { grid-template-columns: 1fr; }
+}
+
+/* Collapsible sidebar for narrow viewports --------------------------------- */
+@media (max-width: 56rem) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas: "topbar" "main";
+  }
+  .app-sidebar {
+    position: static;
+    height: auto;
+    grid-area: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--edge-strong);
+  }
+}
+
+.stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack--tight { gap: var(--space-1); }
+.row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.row--between { justify-content: space-between; }
+.spacer { flex: 1 1 auto; }
+
+/* Horizontal control strip used by the filter/search forms on the older screens. */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.form-row > * { flex: 1 1 12rem; }
+.form-row > button, .form-row > .btn { flex: 0 0 auto; }

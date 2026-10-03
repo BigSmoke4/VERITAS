@@ -1,0 +1,75 @@
+/* Policy Studio: rule cards, condition rows, lifecycle stepper. */
+
+.policy-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.policy-stepper__step {
+  padding: 0.25rem 0.625rem;
+  font-size: var(--fs-300);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1px solid var(--edge-hairline);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-control);
+}
+.policy-stepper__step--current { background: linear-gradient(180deg, #2a6fe0, #0b57d0); border-color: #0842a0; color: #fff; }
+
+.rule-card {
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+.rule-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(180deg, #ffffff, #eef1f5);
+  border-bottom: 1px solid var(--edge-hairline);
+  font-size: var(--fs-400);
+}
+.rule-card__body { padding: var(--space-3); }
+
+.condition-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.2fr) minmax(6rem, 0.8fr) minmax(9rem, 1.2fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.condition-row__join {
+  font-size: var(--fs-300);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0 0 var(--space-1);
+}
+
+.effect-tag { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-300); }
+.effect-tag--allow { color: var(--success); }
+.effect-tag--deny { color: var(--danger); }
+.effect-tag--approval { color: var(--warning); }
+.effect-tag--mfa { color: var(--accent); }
+
+.simulation-delta { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-3); }
+.simulation-delta__item {
+  padding: var(--space-3);
+  background: var(--surface-recessed);
+  border: var(--bezel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-recess);
+  text-align: center;
+}
+.simulation-delta__value { font-family: var(--font-readout); font-size: var(--fs-800); font-variant-numeric: tabular-nums; }
+.simulation-delta__value--loss { color: var(--danger); }
+.simulation-delta__value--gain { color: var(--success); }

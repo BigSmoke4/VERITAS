@@ -29,11 +29,16 @@ public interface IIdentityUserService
     Task<UserDetail?> GetAsync(Guid userId, CancellationToken ct = default);
     Task<(bool Succeeded, Guid? UserId, IReadOnlyList<string> Errors)> CreateAsync(CreateUserCommand command, CancellationToken ct = default);
     Task<(bool Succeeded, IReadOnlyList<string> Errors)> UpdateAsync(Guid userId, string displayName, string jobTitle, Guid? departmentId, string clearance, string location, string country, CancellationToken ct = default);
+    /// <summary>
+    /// Delegates to <c>IRoleAssignmentService</c>, the single code path that writes a
+    /// UserRole row and enforces Separation of Duties. The outcome type is
+    /// <c>RoleManagement.Application.RoleAssignmentOutcome</c> — there is deliberately no
+    /// Identity-local copy of it, so a caller cannot end up holding two unrelated records
+    /// that mean the same thing.
+    /// </summary>
     Task<RoleAssignmentOutcome> AssignRoleAsync(Guid userId, Guid roleId, DateTimeOffset? expiresAtUtc, CancellationToken ct = default);
     Task RevokeRoleAsync(Guid userId, Guid roleId, CancellationToken ct = default);
 }
-
-public sealed record RoleAssignmentOutcome(bool Succeeded, string? Error);
 
 /// <summary>
 /// Identity administration. Role assignment goes through

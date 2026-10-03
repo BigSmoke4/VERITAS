@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Veritas.Web.Modules.AccessReview.Domain;
@@ -13,6 +14,10 @@ using Veritas.Web.Modules.RiskManagement.Domain;
 using Veritas.Web.Modules.RoleManagement.Domain;
 using Veritas.Web.Shared.Domain;
 using OrgEntities = Veritas.Web.Modules.Organization.Domain;
+// The registry entity is called `Application`, which collides with the
+// `Veritas.Web.Shared.Application` namespace one level up. An alias wins
+// over namespace lookup; the bare name would not compile.
+using ApplicationEntity = Veritas.Web.Modules.ResourceManagement.Domain.Application;
 using AccessRequestEntities = Veritas.Web.Modules.AccessRequest.Domain;
 
 namespace Veritas.Web.Shared.Infrastructure;
@@ -50,7 +55,7 @@ public class VeritasDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
     public DbSet<SoDConflictRule> SoDConflictRules => Set<SoDConflictRule>();
 
     // --- Application registry & resources ------------------------------------
-    public DbSet<Application> Applications => Set<Application>();
+    public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
     public DbSet<ServiceAccount> ServiceAccounts => Set<ServiceAccount>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ApiKeyScope> ApiKeyScopes => Set<ApiKeyScope>();
@@ -115,7 +120,7 @@ public class VeritasDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
         builder.Entity<OrgEntities.Department>().HasIndex(d => new { d.OrganizationId, d.Name }).IsUnique();
         builder.Entity<Permission>().HasIndex(p => new { p.OrganizationId, p.Key }).IsUnique();
         builder.Entity<Role>().HasIndex(r => new { r.OrganizationId, r.Name }).IsUnique();
-        builder.Entity<Application>().HasIndex(a => new { a.OrganizationId, a.Name }).IsUnique();
+        builder.Entity<ApplicationEntity>().HasIndex(a => new { a.OrganizationId, a.Name }).IsUnique();
         builder.Entity<Resource>().HasIndex(r => new { r.OrganizationId, r.Name }).IsUnique();
         builder.Entity<ResourceTypeDefinition>().HasIndex(t => new { t.OrganizationId, t.Key }).IsUnique();
         builder.Entity<ResourceGroup>().HasIndex(g => new { g.OrganizationId, g.Name }).IsUnique();
@@ -164,20 +169,20 @@ public class VeritasDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
             .HasForeignKey(d => d.ParentDepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.Entity<Application>()
+        builder.Entity<ApplicationEntity>()
             .HasMany(a => a.Resources)
             .WithOne(r => r.Application)
             .HasForeignKey(r => r.ApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<ResourceGroup>()
-            .HasOne<Application>()
+            .HasOne<ApplicationEntity>()
             .WithMany()
             .HasForeignKey(g => g.ApplicationId)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<ServiceAccount>()
-            .HasOne<Application>()
+            .HasOne<ApplicationEntity>()
             .WithMany()
             .HasForeignKey(s => s.ApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -299,7 +304,7 @@ public class VeritasDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
         ApplyTenantAndSoftDeleteFilter<Role>(builder);
         ApplyTenantAndSoftDeleteFilter<Permission>(builder);
         ApplyTenantAndSoftDeleteFilter<SoDConflictRule>(builder);
-        ApplyTenantAndSoftDeleteFilter<Application>(builder);
+        ApplyTenantAndSoftDeleteFilter<ApplicationEntity>(builder);
         ApplyTenantAndSoftDeleteFilter<Resource>(builder);
         ApplyTenantAndSoftDeleteFilter<ResourceTypeDefinition>(builder);
         ApplyTenantAndSoftDeleteFilter<ResourceGroup>(builder);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Veritas.Web.Modules.Audit.Application;
+using Veritas.Web.Modules.Identity.Domain;
 using Veritas.Web.Modules.RoleManagement.Application;
 using Veritas.Web.Shared.Application.AccessGrants;
 using Veritas.Web.Shared.Domain;

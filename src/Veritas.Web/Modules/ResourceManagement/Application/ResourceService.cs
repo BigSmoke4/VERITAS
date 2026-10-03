@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Veritas.Web.Modules.Audit.Application;
 using Veritas.Web.Modules.ResourceManagement.Domain;
+// This file's own namespace ends in `.Application`, so the bare identifier
+// `Application` binds to the namespace, not to the registry entity.
+using ApplicationEntity = Veritas.Web.Modules.ResourceManagement.Domain.Application;
 using Veritas.Web.Shared.Domain;
 using Veritas.Web.Shared.Infrastructure;
 
@@ -25,7 +28,7 @@ public interface IResourceService
     Task<IReadOnlyList<ApplicationSummary>> ListApplicationsAsync(CancellationToken ct = default);
     Task<ApplicationDetail?> GetApplicationAsync(Guid applicationId, CancellationToken ct = default);
     Task<IReadOnlyList<ResourceSummary>> ListResourcesAsync(Guid? applicationId, string? classification, CancellationToken ct = default);
-    Task<Application> CreateApplicationAsync(string name, string owner, string environment, CancellationToken ct = default);
+    Task<ApplicationEntity> CreateApplicationAsync(string name, string owner, string environment, CancellationToken ct = default);
     Task<Resource> CreateResourceAsync(Guid applicationId, string name, string type, string classification, string environment, string? ownerDepartment, string permissionKeyPrefix, CancellationToken ct = default);
 }
 
@@ -120,9 +123,9 @@ public sealed class ResourceService : IResourceService
             appNames.TryGetValue(r.ApplicationId, out var an) ? an : "(unknown)")).ToList();
     }
 
-    public async Task<Application> CreateApplicationAsync(string name, string owner, string environment, CancellationToken ct = default)
+    public async Task<ApplicationEntity> CreateApplicationAsync(string name, string owner, string environment, CancellationToken ct = default)
     {
-        var app = new Application
+        var app = new ApplicationEntity
         {
             OrganizationId = _tenant.OrganizationId,
             Name = name.Trim(),

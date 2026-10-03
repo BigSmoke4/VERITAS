@@ -53,10 +53,30 @@ jobs:
       # The integration suite boots real PostgreSQL 16 and Redis 7 containers through
       # Testcontainers, so it needs a Docker-capable runner. ubuntu-latest has one.
       - name: "Integration tests (Testcontainers: PostgreSQL 16 + Redis 7)"
-        run: >
-          dotnet test tests/Veritas.IntegrationTests/Veritas.IntegrationTests.csproj
-          --configuration Release --no-build
-          --logger trx --results-directory "${{ github.workspace }}/TestResults/integration"
+        id: integration
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          dotnet test tests/Veritas.IntegrationTests/Veritas.IntegrationTests.csproj \
+            --configuration Release --no-build \
+            --logger "console;verbosity=detailed" \
+            --logger trx --results-directory "${{ github.workspace }}/TestResults/integration" \
+            2>&1 | tee "${{ runner.temp }}/integration.log"
+
+      # Job logs live on blob storage that is not always reachable from a sandbox or a
+      # phone. Mirroring the failure text into the job summary means the diagnosis is
+      # readable through the check-run API, not only in the web UI.
+      - name: Publish integration failures to the job summary
+        if: steps.integration.outcome == 'failure'
+        run: |
+          {
+            echo '## Integration test failures'
+            echo
+            echo '```'
+            awk '/^  Failed /{flag=1} flag' "${{ runner.temp }}/integration.log" | head -n 400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Upload test results
         if: always()
@@ -68,7 +88,7 @@ jobs:
           if-no-files-found: warn
 
   schema-check:
-    name: "EF model / migration drift"
+    name: "EF model check"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -86,18 +106,25 @@ jobs:
           dotnet restore Veritas.sln
           dotnet build src/Veritas.Web/Veritas.Web.csproj --configuration Release --no-restore
 
-      # Migrations are generated from the real model rather than hand-written, so the
-      # check is "does the current model still produce the migration we committed".
-      # A non-zero exit here means someone changed an entity without regenerating.
+      # Migrations are deliberately NOT checked in (docs/database.md): a hand-written
+      # migration that drifts from the model snapshot fails silently, which is worse than
+      # no migration. That makes `has-pending-model-changes` meaningless here — with zero
+      # committed migrations it reports the entire model as pending, every time.
+      #
+      # What is worth asserting is that the current model can actually be turned into a
+      # migration. That catches an entity EF cannot map, a missing primary key, a bad
+      # relationship configuration or a shadow-property clash — real model defects that a
+      # plain `dotnet build` will not report.
       #
       # ASPNETCORE_ENVIRONMENT is pinned to Production so the Development-only
       # EnsureCreated/seeding branches in Program.cs cannot run while EF builds the host,
       # and ConnectionStrings__Postgres is set because Program.cs refuses to start without it.
-      - name: Check for pending model changes
-        run: >
-          dotnet ef migrations has-pending-model-changes
-          --project src/Veritas.Web
-          --startup-project src/Veritas.Web
+      - name: Verify the EF model can produce a migration
+        run: |
+          dotnet ef migrations add CiModelCheck \
+            --project src/Veritas.Web \
+            --startup-project src/Veritas.Web \
+            --output-dir Migrations/CiModelCheck
         env:
           ASPNETCORE_ENVIRONMENT: Production
           ConnectionStrings__Postgres: 'Host=localhost;Port=5432;Database=veritas_ci;Username=veritas;Password=veritas'

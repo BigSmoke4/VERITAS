@@ -36,7 +36,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
 
       - name: Restore
         run: dotnet restore Veritas.sln
@@ -78,7 +77,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
 
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
@@ -113,7 +111,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
       # Benchmarks are never executed in CI — a BenchmarkDotNet run takes many minutes
       # and its numbers are meaningless on shared hardware. We only prove they build.
       - run: dotnet build tests/Veritas.Benchmarks/Veritas.Benchmarks.csproj --configuration Release

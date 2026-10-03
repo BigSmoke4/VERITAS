@@ -69,11 +69,15 @@ jobs:
       - name: Publish integration failures to the job summary
         if: steps.integration.outcome == 'failure'
         run: |
+          LOG="${{ runner.temp }}/integration.log"
           {
             echo '## Integration test failures'
             echo
             echo '```'
-            awk '/^  Failed /{flag=1} flag' "${{ runner.temp }}/integration.log" | head -n 400
+            grep -nE 'Failed|Error Message|Assert|Exception|Stack Trace|^ +at ' "$LOG" \
+              | head -n 200 || true
+            echo '--- tail ---'
+            tail -n 120 "$LOG" | cut -c 1-400
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1

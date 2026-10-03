@@ -617,4 +617,4 @@ Then verify:
 
 ## License
 
-No license file is currently included. Add the appropriate license before publishing the repository publicly.
+This project is licensed under the MIT License.
